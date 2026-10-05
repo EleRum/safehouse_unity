@@ -1,0 +1,681 @@
+/*
+ * Safehouse GEAR screen theme.
+ *
+ * Deliberately plain USS: solid colours, per-side borders and border-radius only. No
+ * background-image (no texture assets), no box-shadow or outline (support for those varies by
+ * Unity version and an unsupported property just silently does nothing - better to depend only on
+ * properties every UI Toolkit build has). The faceted-corner panels and the stash grid lines are
+ * drawn in code instead (Chrome/FacetedPanel.cs, Chrome/GridBackground.cs) for exactly that reason.
+ *
+ * Colours match the artboard at https://claude.ai/artifact/Y8ycmAv5F6yfN76Mr4LbDB - keep the two
+ * in sync by eye until real UI is what people look at instead of the mock-up.
+ */
+
+/*
+ * Pinned at the artboard's exact 1440x900, never resized: this screen is laid out in exact
+ * pixels throughout (every card, every grid pitch), the same way the artboard was, so it has to
+ * render at that one fixed size regardless of the actual Game view's size or aspect ratio.
+ * flex-grow without an explicit size (what this used to be) instead STRETCHES gear-root to fill
+ * whatever the Game view happens to be - a 1339x804 view compresses this whole tree by about 11%
+ * on each axis, and everything inside that's laid out with fixed pixel heights (the equipment
+ * slot cards, in particular) gets squeezed along with it, which is what made their contents
+ * overlap. Fitting this fixed size to the window is the panel's job, not this tree's:
+ * GearSceneBuilder sets ScaleWithScreenSize + Shrink against the same 1440x900, so the whole design
+ * scales uniformly and stays fully on screen instead of being squashed or cut off at the edges.
+ */
+.gear-root {
+    width: 1440px;
+    height: 900px;
+    flex-shrink: 0;
+    background-color: rgb(11, 13, 12);
+    color: rgb(230, 233, 236);
+    font-size: 13px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Regular.ttf");
+}
+
+/*
+ * Font weight: UI Toolkit has no font-weight property - a distinct weight is a distinct font FILE,
+ * picked with -unity-font-definition. -unity-font-style: bold only fakes a bold (skews/thickens the
+ * regular face) rather than loading a real bold design, so it stays reserved for small accents
+ * (monogram placeholders, inline numbers) where a dedicated weight isn't worth a separate class.
+ * Oswald and JetBrains Mono are both SIL Open Font License - free to ship in the built game, unlike
+ * the Tarkov icon/text assets in icon_cache/.
+ */
+.font-oswald-medium { -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf"); -unity-font-style: normal; }
+.font-oswald-semibold { -unity-font-definition: url("Fonts/Oswald/Oswald-SemiBold.ttf"); -unity-font-style: normal; }
+.font-mono { -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf"); -unity-font-style: normal; }
+.font-mono-medium { -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Medium.ttf"); -unity-font-style: normal; }
+
+/* ---- bars ---- */
+
+.bar {
+    height: 56px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 24px;
+    padding-right: 24px;
+    background-color: rgb(17, 20, 23);
+}
+
+.bar-top { border-bottom-width: 1px; border-bottom-color: rgb(42, 48, 56); }
+.bar-bottom { border-top-width: 1px; border-top-color: rgb(42, 48, 56); }
+
+/* ---- flat card: equipment slots, weapon row, ability box, search bar, tooltips ---- */
+
+.card {
+    flex-direction: column;
+    background-color: rgb(25, 29, 35);
+    border-width: 1px;
+    border-color: rgb(38, 45, 54);
+    overflow: hidden;
+}
+
+/* ---- nav tabs ---- */
+
+.navtab {
+    height: 56px;
+    padding-left: 16px;
+    padding-right: 16px;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-bottom-width: 2px;
+    border-bottom-color: rgba(0, 0, 0, 0);
+    color: rgb(120, 132, 143);
+    font-size: 13px;
+    -unity-font-style: normal;
+    transition-property: color;
+    transition-duration: 0.15s;
+}
+.navtab:hover { color: rgb(199, 208, 218); }
+.navtab-active {
+    color: rgb(230, 233, 236);
+    border-bottom-color: rgb(217, 164, 65);
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+.navtab-disabled { color: rgb(74, 83, 92); }
+
+/* ---- buttons ---- */
+
+.btn {
+    height: 34px;
+    padding-left: 18px;
+    padding-right: 18px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 2px;
+    font-size: 12px;
+    transition-property: background-color, translate;
+    transition-duration: 0.1s;
+}
+.btn:hover { translate: 0 -1px; }
+.btn:active { translate: 0 1px; }
+
+.btn-primary {
+    background-color: rgb(217, 164, 65);
+    border-width: 0;
+    color: rgb(20, 23, 26);
+    -unity-font-definition: url("Fonts/Oswald/Oswald-SemiBold.ttf");
+    -unity-font-style: normal;
+}
+.btn-primary:hover { background-color: rgb(224, 178, 94); }
+
+.btn-outline {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: rgb(59, 68, 80);
+    color: rgb(154, 165, 177);
+}
+.btn-outline:hover { border-color: rgb(90, 102, 116); color: rgb(230, 233, 236); }
+
+.btn-danger {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: rgb(122, 52, 40);
+    color: rgb(200, 80, 60);
+}
+
+.btn-disabled {
+    background-color: rgb(20, 23, 27);
+    border-width: 1px;
+    border-color: rgb(36, 43, 51);
+    color: rgb(74, 83, 92);
+}
+
+/* ---- stash / rig / backpack cells ---- */
+
+.cell {
+    position: absolute;
+    background-color: rgb(38, 43, 52);
+    border-width: 1px;
+    border-color: rgb(107, 118, 132);
+    padding: 3px 5px;
+    justify-content: space-between;
+    overflow: hidden;
+    transition-property: translate, border-color;
+    transition-duration: 0.1s;
+}
+.cell:hover { translate: 0 -1px; border-color: rgb(139, 150, 162); }
+.cell-selected { border-color: rgb(217, 164, 65); border-width: 2px; }
+
+/* Drag & drop: the cell being dragged, the landing-spot preview under it, and the flash when a drop
+   or turn is refused. Rejection uses the background because each cell's border colour is set inline
+   from its rarity, which a class could not override. */
+.cell-dragging { opacity: 0.3; }
+.cell-proxy { opacity: 0.9; }
+.cell-rejected { background-color: rgb(120, 40, 36); }
+
+/* LOADOUT slot cards: which one is selected, and whether the dragged item can go in the one under it. */
+.slot-selected { border-color: rgb(217, 164, 65); }
+.slot-drop-ok { border-color: rgba(88, 166, 92, 0.9); background-color: rgba(88, 166, 92, 0.12); }
+.slot-drop-bad { border-color: rgba(200, 70, 60, 0.9); background-color: rgba(200, 70, 60, 0.12); }
+
+/* A slot card whose item has art shows only that art, filling the card like a stash cell (the text is
+   still there underneath, for items without art, but hidden). The art is a .cell, so the rarity border,
+   fill and selected / drop styles are the same as in the grids. */
+.slot-art { border-width: 0; }
+.slot-art > * { visibility: hidden; }
+.slot-art > .slot-art-image { visibility: visible; }
+.slot-art-image { left: 0; top: 0; right: 0; bottom: 0; padding: 0; }
+
+.cell-ghost {
+    position: absolute;
+    background-color: rgba(88, 166, 92, 0.22);
+    border-width: 1px;
+    border-color: rgba(88, 166, 92, 0.8);
+}
+.cell-ghost-bad {
+    background-color: rgba(200, 70, 60, 0.22);
+    border-color: rgba(200, 70, 60, 0.8);
+}
+
+.cell-label {
+    font-size: 8px;
+    color: rgb(154, 165, 177);
+    -unity-text-overflow-position: end;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+/* ---- character switcher, message toast, stash scrollbars ---- */
+
+.btn-char {
+    width: 20px;
+    height: 20px;
+    margin: 0;
+    padding: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: rgb(59, 68, 80);
+    color: rgb(154, 165, 177);
+    font-size: 11px;
+}
+.btn-char:hover { border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); }
+
+/* A short message over the bottom of the screen: a refused change, a restore from backup, "not saving". */
+.toast { position: absolute; left: 0; right: 0; bottom: 72px; align-items: center; }
+.toast-label {
+    max-width: 900px;
+    padding: 8px 14px;
+    background-color: rgb(46, 26, 24);
+    border-width: 1px;
+    border-color: rgb(200, 80, 60);
+    color: rgb(230, 233, 236);
+    font-size: 12px;
+    white-space: normal;
+}
+
+#stash-scroll .unity-scroller { background-color: rgb(17, 20, 23); }
+#stash-scroll .unity-base-slider__tracker { background-color: rgb(25, 29, 35); border-width: 0; }
+#stash-scroll .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
+#stash-scroll .unity-scroller__low-button,
+#stash-scroll .unity-scroller__high-button { display: none; }
+
+/* ---- TRADERS screen ---- */
+
+.trader-btn {
+    flex-direction: row;
+    align-items: center;
+    height: 40px;
+    margin: 0 8px 0 0;
+    padding: 0 14px 0 4px;
+    background-color: rgb(25, 29, 35);
+    border-width: 1px;
+    border-color: rgb(38, 45, 54);
+    border-radius: 0;
+    color: rgb(154, 165, 177);
+}
+.trader-btn:hover { border-color: rgb(90, 102, 116); color: rgb(230, 233, 236); }
+.trader-btn-active { border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); }
+.trader-btn-face { width: 32px; height: 32px; margin-right: 8px; }
+.trader-btn-name { font-size: 12px; letter-spacing: 1.4px; }
+
+.trader-portrait {
+    width: 104px;
+    height: 104px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: rgb(59, 68, 80);
+    background-color: rgb(17, 20, 23);
+}
+
+.offer-header {
+    flex-direction: row;
+    align-items: center;
+    height: 22px;
+    flex-shrink: 0;
+    padding-right: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(36, 43, 51);
+}
+.offer-row {
+    flex-direction: row;
+    align-items: center;
+    height: 44px;
+    padding: 0 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(30, 35, 42);
+}
+.offer-icon { width: 40px; height: 36px; margin-right: 8px; flex-shrink: 0; }
+.offer-col-name { flex-grow: 1; font-size: 12px; overflow: hidden; white-space: nowrap; }
+.offer-col-size { width: 54px; -unity-text-align: middle-right; font-size: 11px; }
+.offer-col-price { width: 96px; -unity-text-align: middle-right; font-size: 12px; color: rgb(217, 164, 65); }
+.offer-col-level { width: 44px; -unity-text-align: middle-right; font-size: 11px; }
+.offer-col-stock { width: 60px; -unity-text-align: middle-right; font-size: 11px; }
+.offer-unavailable { opacity: 0.4; }
+
+/* The list's own selection colour, and the dark fields, replace Unity's light default skin. */
+#offer-list { background-color: rgb(17, 20, 23); border-width: 1px; border-color: rgb(36, 43, 51); }
+#offer-list .unity-collection-view__item--selected { background-color: rgb(46, 52, 62); }
+#offer-list .unity-collection-view__item:hover { background-color: rgb(32, 37, 45); }
+#offer-list .unity-scroller { background-color: rgb(17, 20, 23); }
+#offer-list .unity-base-slider__tracker { background-color: rgb(25, 29, 35); border-width: 0; }
+#offer-list .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
+#offer-list .unity-scroller__low-button,
+#offer-list .unity-scroller__high-button { display: none; }
+
+#field-trade-search .unity-base-text-field__input,
+#field-standing .unity-base-text-field__input,
+#field-category .unity-base-popup-field__input {
+    background-color: rgb(20, 23, 27);
+    border-width: 1px;
+    border-color: rgb(42, 48, 56);
+    border-radius: 0;
+    color: rgb(230, 233, 236);
+    font-size: 12px;
+}
+#field-category .unity-base-popup-field__text { color: rgb(230, 233, 236); }
+
+#trade-stash-scroll .unity-scroller { background-color: rgb(17, 20, 23); }
+#trade-stash-scroll .unity-base-slider__tracker { background-color: rgb(25, 29, 35); border-width: 0; }
+#trade-stash-scroll .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
+#trade-stash-scroll .unity-scroller__low-button,
+#trade-stash-scroll .unity-scroller__high-button { display: none; }
+
+.trade-status {
+    height: 20px;
+    margin-top: 8px;
+    flex-shrink: 0;
+    font-size: 12px;
+    color: rgb(154, 165, 177);
+}
+.trade-status-error { color: rgb(200, 80, 60); }
+
+/* ---- typography ---- */
+
+.text-heading {
+    font-size: 15px;
+    letter-spacing: 3px;
+    color: rgb(217, 164, 65);
+    -unity-font-definition: url("Fonts/Oswald/Oswald-SemiBold.ttf");
+    -unity-font-style: normal;
+}
+.text-section {
+    font-size: 12px;
+    letter-spacing: 2.4px;
+    color: rgb(230, 233, 236);
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+.text-label { font-size: 10px; letter-spacing: 1.2px; color: rgb(120, 132, 143); }
+.text-mono {
+    font-size: 13px;
+    -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf");
+    -unity-font-style: normal;
+}
+.text-accent { color: rgb(217, 164, 65); }
+.text-muted { color: rgb(120, 132, 143); }
+.text-good { color: rgb(111, 158, 92); }
+.text-warn { color: rgb(217, 164, 65); }
+.text-danger { color: rgb(200, 80, 60); }
+
+/* ---- divider ---- */
+
+.divider-v { width: 1px; background-color: rgb(42, 48, 56); }
+.divider-h { height: 1px; background-color: rgb(36, 43, 51); flex-grow: 1; }
+
+/* ---- hideout ---- */
+
+.facility-card {
+    flex-direction: column;
+    background-color: rgb(25, 29, 35);
+    border-width: 1px;
+    border-color: rgb(38, 45, 54);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+}
+.facility-card-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.facility-card-name {
+    font-size: 13px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    flex-grow: 1;
+}
+.facility-card-level {
+    font-size: 11px;
+    color: rgb(217, 164, 65);
+    margin-right: 10px;
+}
+.facility-card-desc {
+    font-size: 11px;
+    color: rgb(120, 132, 143);
+    white-space: normal;
+    margin-bottom: 8px;
+}
+.facility-card-requirements {
+    font-size: 11px;
+    color: rgb(200, 80, 60);
+    white-space: normal;
+    margin-bottom: 4px;
+}
+.facility-card-cost {
+    font-size: 11px;
+    color: rgb(217, 164, 65);
+    margin-bottom: 4px;
+}
+.facility-card-effects {
+    font-size: 11px;
+    color: rgb(111, 158, 92);
+    white-space: normal;
+    margin-bottom: 8px;
+}
+.facility-card-decorative {
+    font-size: 10px;
+    color: rgb(120, 132, 143);
+    margin-bottom: 8px;
+}
+.facility-card-btn {
+    align-self: flex-end;
+    font-size: 11px;
+    height: 26px;
+}
+.facility-card-production {
+    flex-direction: column;
+    margin-top: 4px;
+    padding-top: 8px;
+    border-top-width: 1px;
+    border-top-color: rgb(43, 50, 59);
+}
+.facility-recipe-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.facility-recipe-name {
+    font-size: 11px;
+    color: rgb(180, 188, 198);
+    flex-grow: 1;
+}
+.facility-recipe-progress {
+    flex-grow: 1;
+    height: 8px;
+    background-color: rgb(43, 50, 59);
+    margin-right: 8px;
+}
+.facility-recipe-progress-bar {
+    height: 8px;
+    background-color: rgb(111, 158, 92);
+}
+.facility-recipe-btn {
+    font-size: 10px;
+    height: 22px;
+    width: 70px;
+}
+
+#facility-scroll .unity-scroller { background-color: rgb(17, 20, 23); }
+#facility-scroll .unity-base-slider__tracker { background-color: rgb(25, 29, 35); border-width: 0; }
+#facility-scroll .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
+#facility-scroll .unity-scroller__low-button,
+#facility-scroll .unity-scroller__high-button { display: none; }
+
+/* ---- direct raid map ---- */
+
+.raid-map {
+    flex-grow: 1;
+    position: relative;
+    min-height: 0;
+    background-color: rgb(11, 13, 12);
+    border-width: 1px;
+    border-color: rgb(38, 45, 54);
+    overflow: hidden;
+}
+
+.raid-plate { background-color: rgb(11, 13, 12); }
+
+.raid-legend {
+    position: absolute;
+    left: 16px;
+    bottom: 12px;
+    letter-spacing: 1.6px;
+}
+
+.raid-token {
+    position: absolute;
+    width: 80px;
+    align-items: center;
+}
+
+.raid-ring {
+    position: absolute;
+    left: 2px;
+    top: -6px;
+    width: 76px;
+    height: 76px;
+    border-radius: 38px;
+    border-width: 1px;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.raid-ring-current {
+    border-width: 2px;
+    border-color: rgb(217, 164, 65);
+    background-color: rgba(217, 164, 65, 0.10);
+}
+
+.raid-ring-open { border-color: rgba(217, 164, 65, 0.45); }
+
+.raid-node {
+    width: 64px;
+    height: 64px;
+    margin-top: 0;
+    padding: 0;
+    border-width: 0;
+    border-radius: 32px;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.raid-node-open:hover { translate: 0 -2px; }
+.raid-node-cleared { opacity: 0.42; }
+.raid-node-locked { opacity: 0.28; }
+
+.raid-node-label {
+    margin-top: 3px;
+    font-size: 9px;
+    letter-spacing: 1.2px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+    -unity-text-align: middle-center;
+    color: rgb(154, 165, 177);
+    white-space: nowrap;
+}
+
+.raid-node-label-current { color: rgb(217, 164, 65); }
+
+.raid-kicker {
+    font-size: 10px;
+    letter-spacing: 1.8px;
+    color: rgb(217, 164, 65);
+    margin-bottom: 4px;
+}
+
+.raid-title {
+    font-size: 18px;
+    letter-spacing: 0.6px;
+    white-space: normal;
+    margin-bottom: 6px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+
+.raid-body {
+    font-size: 12px;
+    color: rgb(154, 165, 177);
+    white-space: normal;
+    margin-bottom: 12px;
+}
+
+.raid-choice { margin-bottom: 6px; align-self: stretch; }
+
+.raid-party {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top-width: 1px;
+    border-top-color: rgb(36, 43, 51);
+}
+
+.raid-part-track {
+    height: 4px;
+    margin-top: 3px;
+    background-color: rgb(36, 43, 51);
+}
+
+.raid-part-fill { height: 4px; background-color: rgb(111, 158, 92); }
+.raid-part-hurt { background-color: rgb(217, 164, 65); }
+.raid-part-down { background-color: rgb(200, 80, 60); }
+
+.map-grid { flex-direction: row; flex-wrap: wrap; margin-bottom: 8px; }
+.map-tile {
+    width: 156px;
+    height: 156px;
+    min-width: 156px;
+    min-height: 156px;
+    margin: 0 8px 8px 0;
+    padding: 0;
+    border-width: 2px;
+    border-color: rgb(36, 43, 51);
+    border-radius: 0;
+    background-color: rgb(17, 20, 23);
+    -unity-background-scale-mode: scale-and-crop;
+    overflow: hidden;
+    justify-content: flex-end;
+}
+.map-tile-on { border-color: rgb(217, 164, 65); }
+.map-tile-name {
+    margin: 0;
+    padding: 6px 4px;
+    background-color: rgba(10, 12, 14, 0.78);
+    color: rgb(232, 226, 214);
+    font-size: 11px;
+    letter-spacing: 0.6px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+
+#scavenge-log-scroll { flex-grow: 1; min-height: 80px; }
+#scavenge-log-scroll .unity-scroller { background-color: rgb(17, 20, 23); }
+#scavenge-log-scroll .unity-base-slider__tracker { background-color: rgb(25, 29, 35); border-width: 0; }
+#scavenge-log-scroll .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
+#scavenge-log-scroll .unity-scroller__low-button,
+#scavenge-log-scroll .unity-scroller__high-button { display: none; }
+
+/* ---- character sheet ---- */
+
+.sheet-section { margin-bottom: 16px; }
+.sheet-row { flex-direction: row; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
+.sheet-stat {
+    width: 48px;
+    min-width: 48px;
+    margin-right: 6px;
+    flex-shrink: 0;
+    -unity-text-align: middle-right;
+}
+.sheet-value { width: 28px; margin-right: 4px; -unity-text-align: middle-center; }
+.sheet-step { width: 28px; height: 26px; margin-right: 4px; padding: 0; }
+.sheet-class { height: 28px; margin: 0 6px 6px 0; padding-left: 10px; padding-right: 10px; }
+.sheet-art { height: 28px; margin: 0 6px 6px 0; }
+.sheet-art-on { border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); }
+
+.sheet-field {
+    flex-direction: row;
+    align-items: center;
+    width: auto;
+    margin: 0 18px 8px 0;
+    flex-grow: 0;
+}
+.sheet-field .unity-base-text-field__input,
+.sheet-field .unity-base-field__input {
+    width: 420px;
+    min-width: 420px;
+    max-width: 420px;
+    flex-grow: 0;
+    height: 32px;
+    padding-left: 8px;
+    padding-right: 8px;
+    background-color: rgb(255, 255, 255);
+    border-width: 1px;
+    border-color: rgb(196, 202, 208);
+    color: rgb(20, 23, 26);
+    -unity-font-style: normal;
+    font-size: 13px;
+}
+.sheet-field .unity-base-field__input .unity-text-element {
+    color: rgb(20, 23, 26);
+}
+.sheet-field-wide {
+    width: 100%;
+    margin-right: 0;
+}
+.sheet-field-wide .unity-base-text-field__input,
+.sheet-field-wide .unity-base-field__input {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    flex-grow: 1;
+}
+.sheet-field .unity-base-text-field__label,
+.sheet-field .unity-base-field__label {
+    min-width: 0;
+    width: auto;
+    margin-right: 6px;
+    padding-left: 0;
+    padding-right: 0;
+    flex-grow: 0;
+    color: rgb(120, 132, 143);
+    font-size: 12px;
+    -unity-text-align: middle-right;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+}
+
+#character-scroll .unity-scroller { background-color: rgb(17, 20, 23); }
+#character-scroll .unity-base-slider__tracker { background-color: rgb(25, 29, 35); border-width: 0; }
+#character-scroll .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
+#character-scroll .unity-scroller__low-button,
+#character-scroll .unity-scroller__high-button { display: none; }

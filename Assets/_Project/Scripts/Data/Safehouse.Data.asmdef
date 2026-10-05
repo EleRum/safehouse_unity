@@ -1,0 +1,16 @@
+{
+    "name": "Safehouse.Data",
+    "rootNamespace": "Safehouse.Data",
+    "references": [
+        "Safehouse.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
