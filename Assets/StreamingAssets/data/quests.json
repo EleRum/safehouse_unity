@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "note": "Task chain for the QUESTS screen. Objective kinds: extract (come back alive from a map), loot (bring back N of an item or category), deliver (hand N over from the stash). Rewards are roubles, trader standing, and items. requires lists quest ids that must be claimed first, so the chain is a graph, not a list.",
+  "quests": [
+    {
+      "quest_id": "prapor-1-first-blood",
+      "trader_id": "prapor",
+      "title": "First Blood",
+      "text": "You want work? Good. Go to Customs, walk out alive, and I will know you are not a liability.",
+      "requires": [],
+      "objective": { "kind": "extract", "map": "customs", "count": 1 },
+      "reward": { "roubles": 15000, "standing": 10, "items": [] }
+    },
+    {
+      "quest_id": "prapor-2-bandages",
+      "trader_id": "prapor",
+      "title": "Field Kit",
+      "text": "My boys are bleeding faster than I can resupply them. Bring me bandages - the cheap ones will do.",
+      "requires": ["prapor-1-first-blood"],
+      "objective": { "kind": "deliver", "item": "army-bandage", "count": 4 },
+      "reward": { "roubles": 20000, "standing": 15, "items": [ { "item": "ai-2-medkit", "count": 2 } ] }
+    },
+    {
+      "quest_id": "prapor-3-factory-run",
+      "trader_id": "prapor",
+      "title": "Under the Factory",
+      "text": "The Factory is small, dark and full of people who want your rifle. Come out of it once and I will believe you.",
+      "requires": ["prapor-2-bandages"],
+      "objective": { "kind": "extract", "map": "factory", "count": 1 },
+      "reward": { "roubles": 30000, "standing": 20, "items": [ { "item": "545x39mm-bt-gs", "count": 2 } ] }
+    },
+    {
+      "quest_id": "prapor-4-ammo-run",
+      "trader_id": "prapor",
+      "title": "Bring Back the Good Stuff",
+      "text": "BT goes for a fortune and I am not paying it. Two boxes, brought back in one piece.",
+      "requires": ["prapor-3-factory-run"],
+      "objective": { "kind": "loot", "item": "545x39mm-bt-gs", "count": 2 },
+      "reward": { "roubles": 45000, "standing": 25, "items": [] }
+    },
+    {
+      "quest_id": "therapist-1-meds",
+      "trader_id": "therapist",
+      "title": "Something for the Wounded",
+      "text": "A Salewa kit, brought back from a raid, not bought from me. I want to know it can be done.",
+      "requires": [],
+      "objective": { "kind": "loot", "item": "salewa-first-aid-kit", "count": 1 },
+      "reward": { "roubles": 12000, "standing": 8, "items": [ { "item": "army-bandage", "count": 3 } ] }
+    },
+    {
+      "quest_id": "therapist-2-rations",
+      "trader_id": "therapist",
+      "title": "Full Shelves",
+      "text": "Food is the quiet part of survival. Four rations, and I will remember your name.",
+      "requires": ["therapist-1-meds"],
+      "objective": { "kind": "loot", "category": "Food", "count": 4 },
+      "reward": { "roubles": 18000, "standing": 12, "items": [ { "item": "golden-star-balm", "count": 1 } ] }
+    }
+  ]
+}

@@ -35,9 +35,13 @@ namespace Safehouse.Data
         /// </summary>
         public const string Locations = "locations";
 
+        /// <summary>The quest chain. See <see cref="QuestLoader"/> and <see cref="QuestRules"/>.</summary>
+        public const string Quests = "quests";
+
         public static readonly IReadOnlyList<string> All = new[]
         {
             Items, Traders, Maps, Gear, Containers, Combat, RaidNodes, MapsOverrides, Hideout, Locations,
+            Quests,
         };
     }
 

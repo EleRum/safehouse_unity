@@ -159,6 +159,7 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
 
             // The toolbar and the bottom bar were drawn for the design but never wired. They now do
             // what they say: DEPLOY opens the expedition screen, TO HIDEOUT the hideout, EQUIP wears

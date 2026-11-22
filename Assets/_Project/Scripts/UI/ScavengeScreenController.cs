@@ -55,6 +55,7 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
+            _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             ScreenNavigator.Register("scavenge", Show, Hide);
             Hide();
         }
@@ -504,6 +505,11 @@ namespace Safehouse.UI
                         ? "The party is down. Anything not already in the stash is lost."
                         : "Extracted. Standing members' loot is in the stash.")
                     : null;
+
+                if (done.Status == ExpeditionStatus.Completed)
+                {
+                    AdvanceQuests(session, done);
+                }
             }
             catch (Exception error)
             {
@@ -513,9 +519,37 @@ namespace Safehouse.UI
             Refresh();
         }
 
-        /// <summary>Keeps a copy of the character first, so the trip it is about to start can be undone.</summary>
-        private void Launch(CharacterSession session)
+        /// <summary>
+        /// Hands a finished trip to the quest chain. Done here, where the trip actually ends, so a quest
+        /// can only move when a trip finishes - and exactly once. The QUESTS screen never adds progress,
+        /// it only reads it.
+        /// </summary>
+        private void AdvanceQuests(CharacterSession session, Expedition trip)
         {
+            if (session == null || !session.Saves)
+            {
+                return;
+            }
+
+            try
+            {
+                var repository = new QuestRepository(session.Repository.DataFolder);
+                var log = repository.Load(session.Profile.ProfileId);
+                var advanced = QuestRules.Advance(log, QuestLoader.Load(), trip,
+                    session.Profile.ProfileId, Catalog());
+                if (!ReferenceEquals(advanced, log))
+                {
+                    repository.Save(session.Profile.ProfileId, advanced);
+                }
+            }
+            catch (Exception error)
+            {
+                _error.text = "Quest progress was not saved: " + error.Message;
+            }
+        }
+
+        /// <summary>Keeps a copy of the character first, so the trip it is about to start can be undone.</summary>
+        private void Launch(CharacterSession session)        {
             try
             {
                 Snapshots(session).Save(session.Profile, Now(), "before-launch");

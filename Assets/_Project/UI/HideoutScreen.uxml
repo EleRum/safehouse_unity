@@ -17,7 +17,7 @@
             <ui:Button text="HIDEOUT" name="navtab-hideout" class="navtab navtab-active" />
             <ui:Button text="TRADERS" name="navtab-traders" class="navtab" />
             <ui:Button text="SCAVENGE" name="navtab-scavenge" class="navtab" />
-            <ui:Button text="QUESTS" class="navtab navtab-disabled" focusable="false" />
+            <ui:Button text="QUESTS" name="navtab-quests" class="navtab" />
             <ui:VisualElement style="flex-grow: 1;" />
             <ui:Button text="SETTINGS" name="navtab-settings" class="navtab" />
             <ui:VisualElement style="flex-direction: row; align-items: flex-end; margin-right: 18px;">

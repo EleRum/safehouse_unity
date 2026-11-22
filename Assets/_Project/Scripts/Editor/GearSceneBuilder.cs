@@ -22,6 +22,7 @@ namespace Safehouse.Editor
         private const string SettingsUxmlPath = UiFolder + "/SettingsScreen.uxml";
         private const string ScavengeUxmlPath = UiFolder + "/ScavengeScreen.uxml";
         private const string CharacterUxmlPath = UiFolder + "/CharacterScreen.uxml";
+        private const string QuestsUxmlPath = UiFolder + "/QuestsScreen.uxml";
         private const string ScenePath = "Assets/_Project/Scenes/Gear.unity";
 
         [MenuItem("Safehouse/Build Gear Scene")]
@@ -56,6 +57,7 @@ namespace Safehouse.Editor
             EditorUtility.SetDirty(panelSettings);
 
             var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
+            var questsUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(QuestsUxmlPath);
             if (uxml == null)
             {
                 Debug.LogError($"GearSceneBuilder: no VisualTreeAsset at {UxmlPath}. Import the " +
@@ -148,6 +150,12 @@ namespace Safehouse.Editor
             characterDocument.panelSettings = panelSettings;
             characterDocument.visualTreeAsset = characterUxml;
             characterHost.AddComponent<CharacterScreenController>();
+
+            var questsHost = new GameObject("QuestsScreen");
+            var questsDocument = questsHost.AddComponent<UIDocument>();
+            questsDocument.panelSettings = panelSettings;
+            questsDocument.visualTreeAsset = questsUxml;
+            questsHost.AddComponent<QuestsScreenController>();
 
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();

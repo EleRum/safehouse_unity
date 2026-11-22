@@ -1,0 +1,39 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:sh="Safehouse.UI.Chrome">
+    <ui:Style src="Theme.uss" />
+
+    <ui:VisualElement name="quests-root" class="gear-root" style="flex-direction: column;">
+        <ui:VisualElement class="bar bar-top">
+            <ui:VisualElement style="flex-direction: row; align-items: center; margin-right: 22px;">
+                <ui:Label text="SAFEHOUSE" class="text-heading" />
+            </ui:VisualElement>
+            <ui:Button text="CHARACTER" name="navtab-character" class="navtab" />
+            <ui:Button text="GEAR" name="navtab-gear" class="navtab" />
+            <ui:Button text="HIDEOUT" name="navtab-hideout" class="navtab" />
+            <ui:Button text="TRADERS" name="navtab-traders" class="navtab" />
+            <ui:Button text="SCAVENGE" name="navtab-scavenge" class="navtab" />
+            <ui:Button text="QUESTS" name="navtab-quests" class="navtab navtab-active" />
+            <ui:VisualElement style="flex-grow: 1;" />
+            <ui:Button text="SETTINGS" name="navtab-settings" class="navtab" />
+        </ui:VisualElement>
+
+        <ui:VisualElement style="flex-grow: 1; flex-direction: row; padding: 14px 24px; min-height: 0;">
+            <ui:VisualElement style="width: 560px; flex-shrink: 0; flex-direction: column; margin-right: 20px; min-height: 0;">
+                <ui:Label text="TASKS" class="text-section" style="margin-bottom: 8px;" />
+                <ui:ScrollView name="quest-list" mode="Vertical" style="flex-grow: 1;" />
+            </ui:VisualElement>
+
+            <ui:VisualElement style="flex-grow: 1; flex-direction: column; min-height: 0;">
+                <ui:Label name="quest-title" text="Select a task" class="text-heading" style="margin-bottom: 6px;" />
+                <ui:Label name="quest-trader" text="" class="text-muted" style="font-size: 11px; margin-bottom: 10px;" />
+                <ui:Label name="quest-text" text="" class="text-muted" style="white-space: normal; font-size: 13px; margin-bottom: 16px; max-width: 640px;" />
+                <ui:Label text="OBJECTIVE" class="text-section" style="margin-bottom: 6px;" />
+                <ui:Label name="quest-objective" text="" style="white-space: normal; font-size: 13px; margin-bottom: 4px;" />
+                <ui:Label name="quest-progress" text="" class="text-mono text-accent" style="margin-bottom: 16px;" />
+                <ui:Label text="REWARD" class="text-section" style="margin-bottom: 6px;" />
+                <ui:Label name="quest-reward" text="" style="white-space: normal; font-size: 13px; margin-bottom: 18px;" />
+                <ui:Button name="quest-claim" text="CLAIM" class="btn btn-primary" style="width: 220px;" />
+                <ui:Label name="quest-status" text="" class="trade-status" style="margin-top: 10px;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>
