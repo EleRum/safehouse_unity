@@ -65,6 +65,7 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             _buttonUpgradeRoom.clicked += TryUpgradeRoom;
 
             ScreenNavigator.Register("hideout", Show, Hide);
@@ -164,11 +165,14 @@ namespace Safehouse.UI
 
             var nextLevel = currentLevel + 1;
             var canUpgrade = nextLevel <= definition.MaxLevel;
+            var blocked = canUpgrade
+                ? HideoutRules.UpgradeError(_definition, hideout, profile, definition.FacilityId, nextLevel)
+                : null;
             var button = new Button { text = canUpgrade ? "UPGRADE" : "MAX" };
             button.AddToClassList("btn");
             button.AddToClassList(canUpgrade ? "btn-primary" : "btn-outline");
             button.AddToClassList("facility-card-btn");
-            button.SetEnabled(canUpgrade && HideoutRules.UpgradeError(_definition, hideout, profile, definition.FacilityId, nextLevel) == null);
+            button.SetEnabled(canUpgrade && blocked == null);
 
             if (canUpgrade)
             {
@@ -212,6 +216,14 @@ namespace Safehouse.UI
                 var costLabel = new Label(costText);
                 costLabel.AddToClassList("facility-card-cost");
                 card.Add(costLabel);
+
+                // A disabled button with no explanation is a dead end: say why it cannot be pressed.
+                if (blocked != null)
+                {
+                    var whyLabel = new Label(blocked);
+                    whyLabel.AddToClassList("facility-card-requirements");
+                    card.Add(whyLabel);
+                }
             }
 
             if (currentLevel > 0)

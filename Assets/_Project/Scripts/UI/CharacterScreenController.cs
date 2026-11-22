@@ -51,6 +51,7 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             ScreenNavigator.Register("character", Show, Hide);
             Hide();
@@ -488,12 +489,6 @@ namespace Safehouse.UI
                 // would stay white no matter what the USS says.
                 input.style.backgroundColor = new UnityEngine.Color(20f / 255f, 23f / 255f, 27f / 255f);
                 input.style.color = new UnityEngine.Color(230f / 255f, 233f / 255f, 236f / 255f);
-                var editable = input.Q(className: "unity-text-input");
-                if (editable != null)
-                {
-                    editable.style.backgroundColor = new UnityEngine.Color(20f / 255f, 23f / 255f, 27f / 255f);
-                    editable.style.color = new UnityEngine.Color(230f / 255f, 233f / 255f, 236f / 255f);
-                }
             }
 
             return field;

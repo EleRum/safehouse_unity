@@ -29,7 +29,7 @@
     flex-shrink: 0;
     background-color: rgb(11, 13, 12);
     color: rgb(230, 233, 236);
-    font-size: 13px;
+    font-size: 16px;
     -unity-font-definition: url("Fonts/Oswald/Oswald-Regular.ttf");
 }
 
@@ -83,7 +83,7 @@
     border-bottom-width: 2px;
     border-bottom-color: rgba(0, 0, 0, 0);
     color: rgb(120, 132, 143);
-    font-size: 13px;
+    font-size: 16px;
     -unity-font-style: normal;
     transition-property: color;
     transition-duration: 0.15s;
@@ -106,7 +106,7 @@
     justify-content: center;
     align-items: center;
     border-radius: 2px;
-    font-size: 12px;
+    font-size: 14px;
     transition-property: background-color, translate;
     transition-duration: 0.1s;
 }
@@ -192,7 +192,7 @@
 }
 
 .cell-label {
-    font-size: 8px;
+    font-size: 10px;
     color: rgb(154, 165, 177);
     -unity-text-overflow-position: end;
     text-overflow: ellipsis;
@@ -211,7 +211,7 @@
     border-width: 1px;
     border-color: rgb(59, 68, 80);
     color: rgb(154, 165, 177);
-    font-size: 11px;
+    font-size: 15px;
 }
 .btn-char:hover { border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); }
 
@@ -224,7 +224,7 @@
     border-width: 1px;
     border-color: rgb(200, 80, 60);
     color: rgb(230, 233, 236);
-    font-size: 12px;
+    font-size: 14px;
     white-space: normal;
 }
 
@@ -251,7 +251,7 @@
 .trader-btn:hover { border-color: rgb(90, 102, 116); color: rgb(230, 233, 236); }
 .trader-btn-active { border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); }
 .trader-btn-face { width: 32px; height: 32px; margin-right: 8px; }
-.trader-btn-name { font-size: 12px; letter-spacing: 1.4px; }
+.trader-btn-name { font-size: 14px; letter-spacing: 1.4px; }
 
 .trader-portrait {
     width: 104px;
@@ -280,11 +280,11 @@
     border-bottom-color: rgb(30, 35, 42);
 }
 .offer-icon { width: 40px; height: 36px; margin-right: 8px; flex-shrink: 0; }
-.offer-col-name { flex-grow: 1; font-size: 12px; overflow: hidden; white-space: nowrap; }
-.offer-col-size { width: 54px; -unity-text-align: middle-right; font-size: 11px; }
-.offer-col-price { width: 96px; -unity-text-align: middle-right; font-size: 12px; color: rgb(217, 164, 65); }
-.offer-col-level { width: 44px; -unity-text-align: middle-right; font-size: 11px; }
-.offer-col-stock { width: 60px; -unity-text-align: middle-right; font-size: 11px; }
+.offer-col-name { flex-grow: 1; font-size: 14px; overflow: hidden; white-space: nowrap; }
+.offer-col-size { width: 54px; -unity-text-align: middle-right; font-size: 13px; }
+.offer-col-price { width: 96px; -unity-text-align: middle-right; font-size: 14px; color: rgb(217, 164, 65); }
+.offer-col-level { width: 44px; -unity-text-align: middle-right; font-size: 13px; }
+.offer-col-stock { width: 60px; -unity-text-align: middle-right; font-size: 13px; }
 .offer-unavailable { opacity: 0.4; }
 
 /* The list's own selection colour, and the dark fields, replace Unity's light default skin. */
@@ -305,7 +305,7 @@
     border-color: rgb(42, 48, 56);
     border-radius: 0;
     color: rgb(230, 233, 236);
-    font-size: 12px;
+    font-size: 14px;
 }
 #field-category .unity-base-popup-field__text { color: rgb(230, 233, 236); }
 
@@ -319,7 +319,7 @@
     height: 20px;
     margin-top: 8px;
     flex-shrink: 0;
-    font-size: 12px;
+    font-size: 14px;
     color: rgb(154, 165, 177);
 }
 .trade-status-error { color: rgb(200, 80, 60); }
@@ -327,22 +327,22 @@
 /* ---- typography ---- */
 
 .text-heading {
-    font-size: 15px;
+    font-size: 18px;
     letter-spacing: 3px;
     color: rgb(217, 164, 65);
     -unity-font-definition: url("Fonts/Oswald/Oswald-SemiBold.ttf");
     -unity-font-style: normal;
 }
 .text-section {
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: 2.4px;
     color: rgb(230, 233, 236);
     -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
     -unity-font-style: normal;
 }
-.text-label { font-size: 10px; letter-spacing: 1.2px; color: rgb(120, 132, 143); }
+.text-label { font-size: 12px; letter-spacing: 1.2px; color: rgb(120, 132, 143); }
 .text-mono {
-    font-size: 13px;
+    font-size: 16px;
     -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf");
     -unity-font-style: normal;
 }
@@ -373,46 +373,46 @@
     margin-bottom: 6px;
 }
 .facility-card-name {
-    font-size: 13px;
+    font-size: 16px;
     -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
     flex-grow: 1;
 }
 .facility-card-level {
-    font-size: 11px;
+    font-size: 13px;
     color: rgb(217, 164, 65);
     margin-right: 10px;
 }
 .facility-card-desc {
-    font-size: 11px;
+    font-size: 13px;
     color: rgb(120, 132, 143);
     white-space: normal;
     margin-bottom: 8px;
 }
 .facility-card-requirements {
-    font-size: 11px;
+    font-size: 13px;
     color: rgb(200, 80, 60);
     white-space: normal;
     margin-bottom: 4px;
 }
 .facility-card-cost {
-    font-size: 11px;
+    font-size: 13px;
     color: rgb(217, 164, 65);
     margin-bottom: 4px;
 }
 .facility-card-effects {
-    font-size: 11px;
+    font-size: 13px;
     color: rgb(111, 158, 92);
     white-space: normal;
     margin-bottom: 8px;
 }
 .facility-card-decorative {
-    font-size: 10px;
+    font-size: 12px;
     color: rgb(120, 132, 143);
     margin-bottom: 8px;
 }
 .facility-card-btn {
     align-self: flex-end;
-    font-size: 11px;
+    font-size: 13px;
     height: 26px;
 }
 .facility-card-production {
@@ -428,7 +428,7 @@
     margin-bottom: 6px;
 }
 .facility-recipe-name {
-    font-size: 11px;
+    font-size: 13px;
     color: rgb(180, 188, 198);
     flex-grow: 1;
 }
@@ -443,7 +443,7 @@
     background-color: rgb(111, 158, 92);
 }
 .facility-recipe-btn {
-    font-size: 10px;
+    font-size: 12px;
     height: 22px;
     width: 70px;
 }
@@ -516,7 +516,7 @@
 
 .raid-node-label {
     margin-top: 3px;
-    font-size: 9px;
+    font-size: 11px;
     letter-spacing: 1.2px;
     -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
     -unity-font-style: normal;
@@ -528,14 +528,14 @@
 .raid-node-label-current { color: rgb(217, 164, 65); }
 
 .raid-kicker {
-    font-size: 10px;
+    font-size: 12px;
     letter-spacing: 1.8px;
     color: rgb(217, 164, 65);
     margin-bottom: 4px;
 }
 
 .raid-title {
-    font-size: 18px;
+    font-size: 21px;
     letter-spacing: 0.6px;
     white-space: normal;
     margin-bottom: 6px;
@@ -544,7 +544,7 @@
 }
 
 .raid-body {
-    font-size: 12px;
+    font-size: 14px;
     color: rgb(154, 165, 177);
     white-space: normal;
     margin-bottom: 12px;
@@ -591,7 +591,7 @@
     padding: 6px 4px;
     background-color: rgba(10, 12, 14, 0.78);
     color: rgb(232, 226, 214);
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 0.6px;
     white-space: normal;
     -unity-text-align: middle-center;
@@ -611,8 +611,10 @@
 .sheet-section { margin-bottom: 16px; }
 .sheet-row { flex-direction: row; align-items: center; margin-bottom: 6px; flex-wrap: wrap; }
 .sheet-stat {
-    width: 48px;
-    min-width: 48px;
+    /* wide enough for the longest caption (DURABILITY / PERCEPTION) at the current type size:
+       a fixed 48px clipped the first letters off the labels once they got bigger */
+    width: 96px;
+    min-width: 96px;
     margin-right: 6px;
     flex-shrink: 0;
     -unity-text-align: middle-right;
@@ -636,7 +638,9 @@
     min-width: 420px;
     max-width: 420px;
     flex-grow: 0;
-    height: 32px;
+    /* min-height, not height: a fixed 32px box forces the text element shorter than Oswald's line
+       box and clips the descenders. The field stays 32px unless its own text needs more. */
+    min-height: 32px;
     padding-left: 8px;
     padding-right: 8px;
     background-color: rgb(20, 23, 27);
@@ -676,7 +680,7 @@
     padding-right: 0;
     flex-grow: 0;
     color: rgb(120, 132, 143);
-    font-size: 12px;
+    font-size: 14px;
     -unity-text-align: middle-right;
     -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
 }
