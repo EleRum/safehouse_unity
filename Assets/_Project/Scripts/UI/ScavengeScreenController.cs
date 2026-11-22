@@ -26,12 +26,26 @@ namespace Safehouse.UI
         private string _notice;
         private string _mapId = "customs";
         private bool _night;
-        private string _mode = ExpeditionModes.Simulation;
+        private string _mode = ExpeditionModes.Direct;
         private float _nextTick;
+
+        // Rolling a trip back needs two more things beside the trip itself: where the "before"
+        // copies are kept, and a way to drop the trip file. Both are rebuilt when the data folder
+        // changes, the same way _expeditions is.
+        private string _auxFolder;
+        private SnapshotRepository _snapshots;
+        private ExpeditionRepository _trips;
 
         private void OnEnable()
         {
             _root = GetComponent<UIDocument>().rootVisualElement;
+
+            // Same as the other screens: the panel scales the 1440x900 design to the window but
+            // keeps its proportions, so a window of another aspect leaves a strip of empty space on
+            // one axis. Centre the design in it instead of letting it pile up on the right.
+            _root.style.alignItems = Align.Center;
+            _root.style.justifyContent = Justify.Center;
+
             _main = _root.Q("scavenge-main");
             _detail = _root.Q("scavenge-detail");
             _log = _root.Q<Label>("scavenge-log");
@@ -118,23 +132,22 @@ namespace Safehouse.UI
 
             column.Add(grid);
 
-            column.Add(new Button(() => { _night = !_night; Refresh(); })
-            {
-                text = _night ? "NIGHT" : "DAY",
-                style = { marginTop = 8, marginBottom = 4 },
-            });
-            column.Add(new Button(() =>
-            {
-                _mode = _mode == ExpeditionModes.Simulation ? ExpeditionModes.Direct : ExpeditionModes.Simulation;
-                Refresh();
-            })
-            {
-                text = _mode == ExpeditionModes.Simulation ? "MODE  SIMULATED" : "MODE  DIRECT",
-                style = { marginBottom = 12 },
-            });
-            column.Add(new Button(() => Run(() =>
-                Expeditions(session).Launch(_mapId, _night, new[] { session.Profile }, Now(), _mode), session))
-            { text = "LAUNCH" });
+            var nightButton = Bar(_night ? "NIGHT" : "DAY", () => { _night = !_night; Refresh(); });
+            nightButton.style.marginTop = 8;
+            nightButton.style.marginBottom = 4;
+            column.Add(nightButton);
+
+            var modeButton = Bar(
+                _mode == ExpeditionModes.Simulation ? "MODE  SIMULATED" : "MODE  DIRECT",
+                () =>
+                {
+                    _mode = _mode == ExpeditionModes.Simulation ? ExpeditionModes.Direct : ExpeditionModes.Simulation;
+                    Refresh();
+                });
+            modeButton.style.marginBottom = 12;
+            column.Add(modeButton);
+
+            column.Add(Bar("LAUNCH", () => Launch(session), primary: true));
             var scroll = new ScrollView(ScrollViewMode.Vertical);
             scroll.style.flexGrow = 1;
             scroll.Add(column);
@@ -183,6 +196,23 @@ namespace Safehouse.UI
                 DrawDirect(session, trip, column);
             }
 
+            var latest = Snapshots(session).Latest(session.Profile.ProfileId);
+            if (latest != null)
+            {
+                var rollback = Bar("ROLL BACK TO BEFORE THIS TRIP", () => RollBack(session, latest));
+                rollback.style.marginTop = 16;
+                column.Add(rollback);
+                var note = new Label("Snapshot kept "
+                    + latest.SavedUtc.ToString("yyyy-MM-dd HH:mm")
+                    + " UTC. Rolling back drops this trip and puts the character, gear and stash back "
+                    + "the way they were before it started.");
+                note.AddToClassList("text-muted");
+                note.style.whiteSpace = WhiteSpace.Normal;
+                note.style.maxWidth = 520;
+                note.style.marginTop = 6;
+                column.Add(note);
+            }
+
             _log.text = string.Join("\n", trip.Log.TakeLast(12));
             _main.Add(column);
         }
@@ -191,19 +221,37 @@ namespace Safehouse.UI
         {
             if (trip.Status == ExpeditionStatus.Active)
             {
-                var left = trip.ZoneStartedAt + ExpeditionRules.ZoneSeconds(trip.ZoneId, trip.Night) - (long)Now();
-                column.Add(new Label(left > 0 ? "Zone resolves in " + left + "s" : "Resolving…"));
+                var zoneSeconds = ExpeditionRules.ZoneSeconds(trip.ZoneId, trip.Night);
+                var left = trip.ZoneStartedAt + zoneSeconds - (long)Now();
+                var clock = left > 0 ? $"{left / 60}:{left % 60:00}" : "resolving…";
+                var note = new Label(
+                    "CLOCK MODE - this trip runs on the real clock: the "
+                    + trip.ZoneId + " zone takes " + zoneSeconds / 60
+                    + " minutes" + (trip.Night ? " (night adds 50%)" : "")
+                    + ". Nothing happens on this screen until the timer runs out. "
+                    + "The node map is the mode you can play right now.");
+                note.AddToClassList("text-muted");
+                note.style.maxWidth = 520;
+                note.style.whiteSpace = WhiteSpace.Normal;
+                column.Add(note);
+                var countdown = new Label("Zone resolves in " + clock);
+                countdown.style.fontSize = 20;
+                countdown.style.marginTop = 10;
+                column.Add(countdown);
             }
             else if (trip.Status == ExpeditionStatus.AwaitingChoice)
             {
                 if (ExpeditionRules.CanGoDeeper(trip))
                 {
-                    column.Add(new Button(() => Run(() => Expeditions(session).ChooseContinue(trip, Now()), session))
-                    { text = "GO DEEPER" });
+                    var deeper = ChoiceButton("GO DEEPER", true,
+                        () => Run(() => Expeditions(session).ChooseContinue(trip, Now()), session));
+                    column.Add(deeper);
                 }
 
-                column.Add(new Button(() => Run(() => Expeditions(session).ChooseExtract(trip), session))
-                { text = "EXTRACT", style = { marginTop = 6 } });
+                var extract = ChoiceButton("EXTRACT", false,
+                    () => Run(() => Expeditions(session).ChooseExtract(trip), session));
+                extract.style.marginTop = 6;
+                column.Add(extract);
             }
             else
             {
@@ -332,6 +380,15 @@ namespace Safehouse.UI
             _detail.Add(party);
         }
 
+        /// <summary>A full-width bar in the screen's own style, not Unity's default button.</summary>
+        private static Button Bar(string text, Action action, bool primary = false)
+        {
+            var button = new Button(action) { text = text };
+            button.AddToClassList("btn");
+            button.AddToClassList(primary ? "btn-primary" : "btn-outline");
+            return button;
+        }
+
         private static Button ChoiceButton(string text, bool primary, Action action)
         {
             var button = new Button(action) { text = text };
@@ -454,6 +511,75 @@ namespace Safehouse.UI
             }
 
             Refresh();
+        }
+
+        /// <summary>Keeps a copy of the character first, so the trip it is about to start can be undone.</summary>
+        private void Launch(CharacterSession session)
+        {
+            try
+            {
+                Snapshots(session).Save(session.Profile, Now(), "before-launch");
+            }
+            catch (StorageException error)
+            {
+                _error.text = "No snapshot could be kept, so the trip was not started: " + error.Message;
+                return;
+            }
+
+            Run(() => Expeditions(session).Launch(_mapId, _night, new[] { session.Profile }, Now(), _mode), session);
+        }
+
+        /// <summary>
+        /// Puts the character back to a kept snapshot and drops the trip it is on, which is the only way
+        /// out of a trip other than walking to an exit. The snapshot is validated and the trip file is
+        /// removed before the character is committed, so a rollback that cannot finish leaves the
+        /// character exactly as it was rather than half-restored.
+        /// </summary>
+        private void RollBack(CharacterSession session, SnapshotInfo snapshot)
+        {
+            try
+            {
+                var restored = Snapshots(session).Load(session.Profile.ProfileId, snapshot.SnapshotId);
+                var trip = Expeditions(session).FindFor(session.Profile.ProfileId);
+                if (trip != null)
+                {
+                    Trips(session).Delete(trip.ExpeditionId);
+                }
+
+                session.Commit(restored);
+                _notice = "Rolled back to the snapshot taken before this trip.";
+            }
+            catch (Exception error)
+            {
+                _error.text = error.Message;
+            }
+
+            Refresh();
+        }
+
+        private SnapshotRepository Snapshots(CharacterSession session)
+        {
+            BuildAuxiliary(session);
+            return _snapshots;
+        }
+
+        private ExpeditionRepository Trips(CharacterSession session)
+        {
+            BuildAuxiliary(session);
+            return _trips;
+        }
+
+        private void BuildAuxiliary(CharacterSession session)
+        {
+            var folder = session.Repository.DataFolder;
+            if (_snapshots != null && _auxFolder == folder)
+            {
+                return;
+            }
+
+            _auxFolder = folder;
+            _snapshots = new SnapshotRepository(folder, Catalog());
+            _trips = new ExpeditionRepository(folder);
         }
 
         private Expedition OpenTrip(CharacterSession session)

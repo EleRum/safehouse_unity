@@ -91,6 +91,20 @@ namespace Safehouse.Data
 
             return null;
         }
+
+        /// <summary>Drops a trip's file - what rolling a character back to its snapshot does, so the
+        /// trip it was on cannot be picked up again afterwards.</summary>
+        public void Delete(string expeditionId)
+        {
+            try
+            {
+                File.Delete(PathFor(expeditionId));
+            }
+            catch (Exception error) when (error is IOException || error is UnauthorizedAccessException)
+            {
+                throw new StorageException($"Could not drop expedition {expeditionId}: {error.Message}", error);
+            }
+        }
     }
 
     /// <summary>
