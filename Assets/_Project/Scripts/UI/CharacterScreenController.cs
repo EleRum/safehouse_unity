@@ -38,6 +38,13 @@ namespace Safehouse.UI
         private void OnEnable()
         {
             _root = GetComponent<UIDocument>().rootVisualElement;
+
+            // The panel scales the 1440x900 design to the window but keeps its proportions, so a
+            // window of another aspect leaves a strip of empty space on one axis. Centre the design
+            // in it, exactly like the other screens - this one was missing it and sat in the corner.
+            _root.style.alignItems = Align.Center;
+            _root.style.justifyContent = Justify.Center;
+
             _scroll = _root.Q<ScrollView>("character-scroll");
             _error = _root.Q<Label>("character-error");
             _root.Q<Button>("navtab-gear").clicked += () => ScreenNavigator.Go("gear");
@@ -66,25 +73,27 @@ namespace Safehouse.UI
             _identity.Clear();
             _career.Clear();
             var column = new VisualElement();
+            column.Add(Section("ROSTER"));
+            column.Add(Roster());
             column.Add(Section("NAME"));
             _name = Field("NAME", wide: true);
             column.Add(_name);
 
             column.Add(Section("IDENTITY"));
             var identity = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
-            AddIdentity(identity, "nationality", "국적");
-            AddIdentity(identity, "gender", "성별");
-            AddIdentity(identity, "age", "나이");
-            AddIdentity(identity, "blood_type", "혈액형");
-            AddIdentity(identity, "height", "신장");
-            AddIdentity(identity, "weight", "체중");
-            AddIdentity(identity, "hair_color", "머리색");
-            AddIdentity(identity, "eye_color", "눈");
-            AddIdentity(identity, "skin_color", "피부");
-            AddIdentity(identity, "rank", "계급");
-            AddIdentity(identity, "language", "언어");
-            AddIdentity(identity, "occupation", "직업");
-            AddIdentity(identity, "era", "시대");
+            AddIdentity(identity, "nationality", "NATIONALITY");
+            AddIdentity(identity, "gender", "GENDER");
+            AddIdentity(identity, "age", "AGE");
+            AddIdentity(identity, "blood_type", "BLOOD TYPE");
+            AddIdentity(identity, "height", "HEIGHT");
+            AddIdentity(identity, "weight", "WEIGHT");
+            AddIdentity(identity, "hair_color", "HAIR");
+            AddIdentity(identity, "eye_color", "EYES");
+            AddIdentity(identity, "skin_color", "SKIN");
+            AddIdentity(identity, "rank", "RANK");
+            AddIdentity(identity, "language", "LANGUAGE");
+            AddIdentity(identity, "occupation", "OCCUPATION");
+            AddIdentity(identity, "era", "ERA");
             column.Add(identity);
 
             column.Add(Section("ABILITY"));
@@ -102,7 +111,7 @@ namespace Safehouse.UI
             column.Add(_subRow);
 
             column.Add(Section("SKILL"));
-            var note = new Label("클래스 보정입니다. 원정에는 적용되지 않습니다.");
+            var note = new Label("Class modifiers. Not applied to expeditions.");
             note.AddToClassList("text-muted");
             note.style.marginBottom = 6;
             column.Add(note);
@@ -116,7 +125,7 @@ namespace Safehouse.UI
             column.Add(Section("CAREER"));
             for (var index = 0; index < Gundog.CareerLines; index++)
             {
-                var line = Field("경력 " + (index + 1), wide: true);
+                var line = Field("CAREER " + (index + 1), wide: true);
                 _career.Add(line);
                 column.Add(line);
             }
@@ -125,9 +134,9 @@ namespace Safehouse.UI
             _rewardLabel = new Label();
             _movementLabel = new Label();
             _durabilityLabel = new Label();
-            column.Add(Stepper("리워드", () => _reward, value => _reward = value, 0, Gundog.MaxReward, _rewardLabel));
-            column.Add(Stepper("이동력", () => _movement, value => _movement = value, 0, Gundog.MaxMovement, _movementLabel));
-            column.Add(Stepper("내구력", () => _durability, value => _durability = value, 0, Gundog.MaxDurability, _durabilityLabel));
+            column.Add(Stepper("REWARD", () => _reward, value => _reward = value, 0, Gundog.MaxReward, _rewardLabel));
+            column.Add(Stepper("MOVEMENT", () => _movement, value => _movement = value, 0, Gundog.MaxMovement, _movementLabel));
+            column.Add(Stepper("DURABILITY", () => _durability, value => _durability = value, 0, Gundog.MaxDurability, _durabilityLabel));
 
             var create = new Button(Create) { text = "CREATE" };
             create.AddToClassList("btn");
@@ -170,6 +179,124 @@ namespace Safehouse.UI
             {
                 _error.text = error.Message;
             }
+        }
+
+        /// <summary>
+        /// The characters in the data folder. There was no way to see them or get rid of one - the
+        /// repository could list and delete all along; this is the screen. The form below still creates
+        /// a character (with its Gundog sheet), so creating is not repeated here.
+        /// </summary>
+        private VisualElement Roster()
+        {
+            var list = new VisualElement { style = { marginBottom = 16 } };
+            var session = GearScreenController.Current?.Session;
+            if (session == null || !session.Saves)
+            {
+                list.Add(new Label("No data folder is open, so there are no characters to list."));
+                return list;
+            }
+
+            IReadOnlyList<Profile> profiles;
+            IReadOnlyList<string> problems;
+            try
+            {
+                (profiles, problems) = session.Repository.List();
+            }
+            catch (Exception error)
+            {
+                list.Add(new Label("Could not read the save folder: " + error.Message));
+                return list;
+            }
+
+            foreach (var problem in problems)
+            {
+                var note = new Label(problem);
+                note.AddToClassList("text-danger");
+                list.Add(note);
+            }
+
+            foreach (var profile in profiles)
+            {
+                var row = new VisualElement
+                {
+                    style =
+                    {
+                        flexDirection = FlexDirection.Row,
+                        alignItems = Align.Center,
+                        marginBottom = 6,
+                    },
+                };
+
+                var open = profile.ProfileId == session.Profile.ProfileId;
+                var label = new Label(profile.DisplayName
+                    + "     " + profile.Status.Replace('_', ' ').ToUpperInvariant()
+                    + "     " + profile.Money + " R")
+                {
+                    style = { flexGrow = 1 },
+                };
+                label.AddToClassList(open ? "text-accent" : "text-muted");
+                row.Add(label);
+
+                var id = profile.ProfileId;
+                var openButton = new Button(() =>
+                {
+                    var gear = GearScreenController.Current;
+                    if (gear == null || gear.OpenCharacter(id) == null)
+                    {
+                        ScreenNavigator.Go("gear");
+                    }
+                })
+                {
+                    text = "OPEN",
+                    style = { marginRight = 6, height = 26, fontSize = 10, paddingLeft = 12, paddingRight = 12 },
+                };
+                openButton.AddToClassList("btn");
+                openButton.AddToClassList("btn-outline");
+                openButton.SetEnabled(!open);
+                row.Add(openButton);
+
+                var deleteButton = new Button { text = "DELETE" };
+                deleteButton.AddToClassList("btn");
+                deleteButton.AddToClassList("btn-danger");
+                deleteButton.style.height = 26;
+                deleteButton.style.fontSize = 10;
+                deleteButton.style.paddingLeft = 12;
+                deleteButton.style.paddingRight = 12;
+                deleteButton.SetEnabled(!open);
+                var confirming = false;
+                deleteButton.clicked += () =>
+                {
+                    if (!confirming)
+                    {
+                        confirming = true;
+                        deleteButton.text = "SURE?";
+                        return;
+                    }
+
+                    try
+                    {
+                        session.Repository.Delete(id);
+                        _error.text = "";
+                    }
+                    catch (Exception error)
+                    {
+                        _error.text = error.Message;
+                    }
+
+                    Build();
+                };
+                row.Add(deleteButton);
+                list.Add(row);
+            }
+
+            var hint = new Label("The form below adds a new character. A character that is open cannot be "
+                + "deleted - open another one first.");
+            hint.AddToClassList("text-muted");
+            hint.style.whiteSpace = WhiteSpace.Normal;
+            hint.style.maxWidth = 560;
+            hint.style.marginTop = 6;
+            list.Add(hint);
+            return list;
         }
 
         private string Text(string key) => _identity.ContainsKey(key) ? _identity[key].value.Trim() : "";
@@ -357,8 +484,16 @@ namespace Safehouse.UI
             var input = field.Q(className: "unity-base-field__input");
             if (input != null)
             {
-                input.style.backgroundColor = UnityEngine.Color.white;
-                input.style.color = new UnityEngine.Color(20f / 255f, 23f / 255f, 26f / 255f);
+                // Inline styles beat the stylesheet, so this has to match Theme.uss - a white box here
+                // would stay white no matter what the USS says.
+                input.style.backgroundColor = new UnityEngine.Color(20f / 255f, 23f / 255f, 27f / 255f);
+                input.style.color = new UnityEngine.Color(230f / 255f, 233f / 255f, 236f / 255f);
+                var editable = input.Q(className: "unity-text-input");
+                if (editable != null)
+                {
+                    editable.style.backgroundColor = new UnityEngine.Color(20f / 255f, 23f / 255f, 27f / 255f);
+                    editable.style.color = new UnityEngine.Color(230f / 255f, 233f / 255f, 236f / 255f);
+                }
             }
 
             return field;

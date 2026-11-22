@@ -237,10 +237,10 @@
                     <ui:VisualElement class="card" style="flex-grow: 1; height: 32px; flex-direction: row; align-items: center; padding: 0 10px; margin-right: 8px;">
                         <ui:TextField name="field-search" placeholder-text="Search" style="flex-grow: 1; background-color: rgba(0,0,0,0); border-width: 0; font-size: 12px;" />
                     </ui:VisualElement>
-                    <ui:Button text="SORT" class="card btn" style="border-width: 0; color: rgb(154, 165, 177); font-size: 11px; margin-right: 8px;" />
-                    <ui:Button text="ALL" class="btn" style="background-color: rgb(30, 34, 40); border-width: 1px; border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); font-size: 11px; margin-right: 8px;" />
-                    <ui:Button text="MEDS" class="card btn" style="border-width: 0; color: rgb(154, 165, 177); font-size: 11px; margin-right: 8px;" />
-                    <ui:Button text="BARTER" class="card btn" style="border-width: 0; color: rgb(154, 165, 177); font-size: 11px;" />
+                    <ui:Button name="btn-sort" text="SORT" class="card btn" style="border-width: 0; color: rgb(154, 165, 177); font-size: 11px; margin-right: 8px;" />
+                    <ui:Button name="filter-all" text="ALL" class="btn" style="background-color: rgb(30, 34, 40); border-width: 1px; border-color: rgb(217, 164, 65); color: rgb(217, 164, 65); font-size: 11px; margin-right: 8px;" />
+                    <ui:Button name="filter-meds" text="MEDS" class="card btn" style="border-width: 0; color: rgb(154, 165, 177); font-size: 11px; margin-right: 8px;" />
+                    <ui:Button name="filter-barter" text="BARTER" class="card btn" style="border-width: 0; color: rgb(154, 165, 177); font-size: 11px;" />
                 </ui:VisualElement>
 
                 <!-- The stash is 10 wide by default and 20 tall (more once the hideout is upgraded), far more than
@@ -276,8 +276,8 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
                     <ui:VisualElement style="justify-content: flex-end;">
-                        <ui:Button text="EQUIP" class="btn btn-primary" style="margin-bottom: 6px; font-size: 11px;" />
-                        <ui:Button text="TO HIDEOUT" class="btn btn-outline" style="font-size: 11px;" />
+                        <ui:Button name="btn-equip" text="EQUIP" class="btn btn-primary" style="margin-bottom: 6px; font-size: 11px;" />
+                        <ui:Button name="btn-to-hideout" text="TO HIDEOUT" class="btn btn-outline" style="font-size: 11px;" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </sh:FacetedPanel>
@@ -298,8 +298,8 @@
             </ui:VisualElement>
             <ui:VisualElement style="flex-grow: 1;" />
             <ui:Label text="CUSTOMS · NIGHT" class="text-muted" style="font-size: 11px; letter-spacing: 1.4px; margin-right: 20px;" />
-            <ui:Button text="SAVE PRESET" class="btn btn-outline" style="margin-right: 12px; font-size: 12px;" />
-            <ui:Button text="DEPLOY" class="btn btn-primary" style="font-size: 12px;" />
+            <ui:Button name="btn-save-preset" text="SAVE PRESET" class="btn btn-outline" style="margin-right: 12px; font-size: 12px;" />
+            <ui:Button name="btn-deploy" text="DEPLOY" class="btn btn-primary" style="font-size: 12px;" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

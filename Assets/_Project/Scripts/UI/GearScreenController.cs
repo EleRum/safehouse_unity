@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using Safehouse.Core;
 using Safehouse.Data;
@@ -158,6 +159,22 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+
+            // The toolbar and the bottom bar were drawn for the design but never wired. They now do
+            // what they say: DEPLOY opens the expedition screen, TO HIDEOUT the hideout, EQUIP wears
+            // the selected item in its own slot, SORT repacks the stash, the chips filter it, and
+            // SAVE PRESET exports the current loadout and stash as JSON beside the save folder.
+            _root.Q<Button>("btn-deploy").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("btn-to-hideout").clicked += () => ScreenNavigator.Go("hideout");
+            _root.Q<Button>("btn-equip").clicked += EquipSelected;
+            _root.Q<Button>("btn-sort").clicked += SortStash;
+            _root.Q<Button>("btn-save-preset").clicked += SavePreset;
+            _filterAll = _root.Q<Button>("filter-all");
+            _filterMeds = _root.Q<Button>("filter-meds");
+            _filterBarter = _root.Q<Button>("filter-barter");
+            _filterAll.clicked += () => SetStashFilter("ALL");
+            _filterMeds.clicked += () => SetStashFilter("MEDS");
+            _filterBarter.clicked += () => SetStashFilter("BARTER");
         }
 
         private void OnDisable()
@@ -607,6 +624,7 @@ namespace Safehouse.UI
         private void RefreshAll()
         {
             BuildCells();
+            ApplyStashFilter();
             RenderSlots();
             UpdateHeaders();
             if (_selectedInstanceId != null && ItemIdOf(_selectedInstanceId) != null)
@@ -1301,6 +1319,196 @@ namespace Safehouse.UI
             _labelSelectedValue.text = Spaced(item.BaseValue);
             _labelSelectedWeight.text = $"{item.Weight:0.00} kg";
             _labelSelectedPerCell.text = Spaced(item.BaseValue / (width * height));
+        }
+
+        // ---- the toolbar and the bottom bar ----
+
+        private static readonly string[] MedCategories = { "Meds", "Medical supplies" };
+
+        private static readonly string[] BarterCategories =
+        {
+            "Valuables", "Electronics", "Household goods", "Building materials", "Tools",
+            "Flammable materials",
+        };
+
+        private Button _filterAll;
+        private Button _filterMeds;
+        private Button _filterBarter;
+        private string _stashFilter = "ALL";
+
+        /// <summary>Wears the selected item in the slot its own type belongs to.</summary>
+        private void EquipSelected()
+        {
+            if (_selectedInstanceId == null)
+            {
+                ShowMessage("Select an item in the stash first.");
+                return;
+            }
+
+            var itemId = ItemIdOf(_selectedInstanceId);
+            if (itemId == null)
+            {
+                ClearSelection();
+                ShowMessage("That item is no longer in a grid.");
+                return;
+            }
+
+            var slot = _loadout.FindByInstance(_selectedInstanceId)?.Slot ?? _gear.SlotOf(itemId);
+            if (slot == null)
+            {
+                ShowMessage($"{_catalog[itemId].Name} cannot be equipped.");
+                return;
+            }
+
+            var error = TryEquipItem(_selectedInstanceId, slot);
+            if (error != null)
+            {
+                ShowMessage(error);
+            }
+        }
+
+        /// <summary>
+        /// Repacks the stash with the same items: category first, then the largest piece first so the
+        /// bins pack tightly, laid out from the top-left by the same placement rule a drop uses.
+        /// All-or-nothing - if anything will not fit, the stash is left exactly as it was.
+        /// </summary>
+        private void SortStash()
+        {
+            var ordered = StashView.Grid.Stash
+                .OrderBy(instance => _catalog[instance.ItemId].Category, StringComparer.OrdinalIgnoreCase)
+                .ThenByDescending(instance => _catalog[instance.ItemId].Width * _catalog[instance.ItemId].Height)
+                .ThenBy(instance => _catalog[instance.ItemId].Name, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(instance => instance.InstanceId, StringComparer.Ordinal)
+                .ToList();
+
+            var packed = new StashGrid(StashView.Grid.StashWidth, StashView.Grid.StashHeight,
+                new List<ItemInstance>());
+            foreach (var instance in ordered)
+            {
+                var spot = PlacementRules.FirstFit(packed, _catalog, instance.ItemId);
+                if (!spot.HasValue)
+                {
+                    ShowMessage("Nowhere to put everything - nothing was moved.");
+                    return;
+                }
+
+                var place = spot.Value;
+                packed = packed.With(packed.Stash.Concat(new[]
+                {
+                    instance.MovedTo(place.X, place.Y, place.Rotation),
+                }));
+            }
+
+            var saveError = Persist(new Dictionary<GridView, StashGrid> { [StashView] = packed });
+            if (saveError != null)
+            {
+                return;
+            }
+
+            StashView.Grid = packed;
+            RefreshAll();
+            ShowMessage("Stash sorted by category.");
+        }
+
+        private void SetStashFilter(string filter)
+        {
+            _stashFilter = filter;
+            PaintChip(_filterAll, filter == "ALL");
+            PaintChip(_filterMeds, filter == "MEDS");
+            PaintChip(_filterBarter, filter == "BARTER");
+            ApplyStashFilter();
+        }
+
+        private static void PaintChip(Button chip, bool active)
+        {
+            var accent = new Color(0.851f, 0.643f, 0.255f);
+            var muted = new Color(0.604f, 0.647f, 0.694f, 1f);
+            chip.style.borderTopWidth = chip.style.borderBottomWidth =
+                chip.style.borderLeftWidth = chip.style.borderRightWidth = 1;
+            chip.style.borderTopColor = chip.style.borderBottomColor =
+                chip.style.borderLeftColor = chip.style.borderRightColor = active ? accent : Color.clear;
+            chip.style.color = active ? accent : muted;
+        }
+
+        /// <summary>Hides the cells that the current chip excludes. Placement is untouched - a hidden
+        /// item keeps its cells, it just is not drawn.</summary>
+        private void ApplyStashFilter()
+        {
+            string[] categories = _stashFilter == "MEDS" ? MedCategories
+                : _stashFilter == "BARTER" ? BarterCategories
+                : null;
+
+            foreach (var pair in _cellsByInstanceId)
+            {
+                var itemId = ItemIdOf(pair.Key);
+                var show = categories == null
+                           || (itemId != null && categories.Contains(_catalog[itemId].Category));
+                pair.Value.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+        }
+
+        [Serializable]
+        private sealed class PresetSlot
+        {
+            public string slot;
+            public string item;
+            public string instanceId;
+        }
+
+        [Serializable]
+        private sealed class PresetItem
+        {
+            public string item;
+            public string instanceId;
+            public int x;
+            public int y;
+            public int rotation;
+        }
+
+        [Serializable]
+        private sealed class LoadoutPreset
+        {
+            public string character;
+            public string savedUtc;
+            public List<PresetSlot> loadout;
+            public List<PresetItem> stash;
+        }
+
+        /// <summary>Writes the worn loadout and the stash to presets/<character id>.json.</summary>
+        private void SavePreset()
+        {
+            var folder = Path.Combine(DataFolderOverride ?? ProfileRepository.DefaultFolder, "presets");
+            try
+            {
+                Directory.CreateDirectory(folder);
+                var preset = new LoadoutPreset
+                {
+                    character = _session.Profile.DisplayName,
+                    savedUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
+                    loadout = LoadoutSlots.All.Select(slot => new PresetSlot
+                    {
+                        slot = slot,
+                        item = _loadout.Get(slot)?.ItemId,
+                        instanceId = _loadout.Get(slot)?.InstanceId,
+                    }).ToList(),
+                    stash = StashView.Grid.Stash.Select(instance => new PresetItem
+                    {
+                        item = instance.ItemId,
+                        instanceId = instance.InstanceId,
+                        x = instance.X,
+                        y = instance.Y,
+                        rotation = instance.Rotation,
+                    }).ToList(),
+                };
+
+                var file = Path.Combine(folder, _session.Profile.ProfileId + ".json");
+                File.WriteAllText(file, JsonUtility.ToJson(preset, true));
+                ShowMessage("Saved preset to " + file, persistent: true);
+            }
+            catch (Exception error)
+            {
+                ShowMessage("Could not save the preset: " + error.Message);
+            }
         }
 
         internal static string Monogram(string category)

@@ -545,6 +545,209 @@ namespace Safehouse.UI
             return message;
         }
 
+        // ---- dragging an item onto the trade panel ----
+
+        private VisualElement _dragGhost;
+
+        /// <summary>
+        /// Lets a stash item be dragged, the way items move on the GEAR screen, and dropped on the
+        /// TRADE panel to offer it. Dropping on SELL is the same as pressing SELL: the confirmation
+        /// still has to be pressed, so a drag can arm a sale but never finish one by accident.
+        /// </summary>
+        private Vector2 _dragGrab;
+
+        /// <summary>
+        /// Lets a stash item be dragged, the way items move on the GEAR screen: the copy under the
+        /// pointer is the item's real footprint, and it keeps the grab offset so it does not jump to
+        /// the cursor. Dropped on the TRADE panel it offers the item; inside the grid it moves it.
+        /// </summary>
+        private void RegisterStashDrag(Button cell, string instanceId)
+        {
+            var dragging = false;
+            var origin = Vector2.zero;
+
+            cell.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (evt.button != 0)
+                {
+                    return;
+                }
+
+                dragging = false;
+                origin = evt.position;
+                _dragGrab = (Vector2)evt.position - (Vector2)cell.worldBound.position;
+                cell.CapturePointer(evt.pointerId);
+            });
+
+            cell.RegisterCallback<PointerMoveEvent>(evt =>
+            {
+                if (!cell.HasPointerCapture(evt.pointerId))
+                {
+                    return;
+                }
+
+                if (!dragging)
+                {
+                    if (((Vector2)evt.position - origin).magnitude < 6f)
+                    {
+                        return;
+                    }
+
+                    dragging = true;
+                    _dragGhost = MakeGhost(instanceId);
+                    _root.Add(_dragGhost);
+                }
+
+                MoveGhost((Vector2)evt.position);
+            });
+
+            cell.RegisterCallback<PointerUpEvent>(evt =>
+            {
+                if (cell.HasPointerCapture(evt.pointerId))
+                {
+                    cell.ReleasePointer(evt.pointerId);
+                }
+
+                if (!dragging)
+                {
+                    return;
+                }
+
+                dragging = false;
+                DropStashItem(instanceId, (Vector2)evt.position);
+            });
+
+            cell.RegisterCallback<PointerCaptureOutEvent>(_ => EndGhost());
+        }
+
+        /// <summary>The copy under the pointer, sized to the item's own footprint like the GEAR screen's.</summary>
+        private VisualElement MakeGhost(string instanceId)
+        {
+            var ghost = new VisualElement { pickingMode = PickingMode.Ignore };
+            ghost.style.position = Position.Absolute;
+            ghost.style.opacity = 0.9f;
+
+            var instance = Profile?.Stash.Stash.FirstOrDefault(candidate => candidate.InstanceId == instanceId);
+            if (instance == null || !_catalog.TryGetValue(instance.ItemId, out var item))
+            {
+                ghost.style.width = Pitch;
+                ghost.style.height = Pitch;
+                return ghost;
+            }
+
+            PlacementRules.Footprint(item, instance.Rotation, out var width, out var height);
+            ghost.style.width = width * Pitch - 2;
+            ghost.style.height = height * Pitch - 2;
+
+            var colour = RarityPalette.For(item.Rarity);
+            ghost.style.borderTopWidth = ghost.style.borderBottomWidth =
+                ghost.style.borderLeftWidth = ghost.style.borderRightWidth = 1;
+            ghost.style.borderTopColor = ghost.style.borderBottomColor =
+                ghost.style.borderLeftColor = ghost.style.borderRightColor = colour;
+
+            var icon = _icons.Get(item.ItemId);
+            ghost.Add(icon != null
+                ? (VisualElement)GearScreenController.IconImage(item, icon, instance.Rotation)
+                : GearScreenController.MonogramLabel(item));
+            return ghost;
+        }
+
+        private void MoveGhost(Vector2 pointer)
+        {
+            if (_dragGhost == null)
+            {
+                return;
+            }
+
+            var local = _root.WorldToLocal(pointer - _dragGrab);
+            _dragGhost.style.left = local.x;
+            _dragGhost.style.top = local.y;
+        }
+
+        private void EndGhost()
+        {
+            if (_dragGhost == null)
+            {
+                return;
+            }
+
+            _dragGhost.RemoveFromHierarchy();
+            _dragGhost = null;
+        }
+
+        private void DropStashItem(string instanceId, Vector2 position)
+        {
+            EndGhost();
+
+            var tradePanel = _sellButton.parent;
+            var overSell = _sellButton.worldBound.Contains(position);
+            var overTrade = tradePanel != null && tradePanel.worldBound.Contains(position);
+
+            if (overSell || overTrade)
+            {
+                SelectStashItem(instanceId);
+                if (overSell && _sellButton.enabledSelf)
+                {
+                    OnSellClicked();
+                }
+
+                return;
+            }
+
+            // Dropped back over the stash itself: move it there, where the copy was showing.
+            if (_stashGrid.worldBound.Contains(position))
+            {
+                MoveStashItem(instanceId, position - _dragGrab);
+            }
+        }
+
+        /// <summary>
+        /// Puts an item down with its top-left corner where the drag copy was. Tidying from here
+        /// matters: a purchase goes into the first place it fits, so a fragmented stash can refuse a
+        /// buy while whole cells are still free - this is how the player fixes that without leaving
+        /// the screen. The rules are the GEAR screen's own <see cref="PlacementRules.Move"/>.
+        /// </summary>
+        private void MoveStashItem(string instanceId, Vector2 topLeft)
+        {
+            var profile = Profile;
+            if (profile == null)
+            {
+                return;
+            }
+
+            var blocked = ProfileRules.GearEditError(profile);
+            if (blocked != null)
+            {
+                SetStatus(blocked, error: true);
+                return;
+            }
+
+            var instance = profile.Stash.Stash.FirstOrDefault(candidate => candidate.InstanceId == instanceId);
+            if (instance == null || !_catalog.TryGetValue(instance.ItemId, out var item))
+            {
+                return;
+            }
+
+            var local = _stashGrid.WorldToLocal(topLeft);
+            var x = Mathf.RoundToInt((local.x - 2f) / Pitch);
+            var y = Mathf.RoundToInt((local.y - 2f) / Pitch);
+
+            try
+            {
+                var moved = PlacementRules.Move(profile.Stash, _catalog, instanceId, x, y, instance.Rotation);
+                Session.Commit(profile.With(stash: moved));
+            }
+            catch (Exception error)
+            {
+                SetStatus(error.Message, error: true);
+                return;
+            }
+
+            BuildStash();
+            SelectStashItem(instanceId);
+            SetStatus("");
+        }
+
         // ---- the stash, to sell from ----
 
         private void BuildStash()
@@ -578,6 +781,7 @@ namespace Safehouse.UI
 
                 var id = instance.InstanceId;
                 cell.clicked += () => SelectStashItem(id);
+                RegisterStashDrag(cell, id);
                 _stashGrid.Add(cell);
             }
 
@@ -620,7 +824,8 @@ namespace Safehouse.UI
 
             if (_selectedStashId == null)
             {
-                _labelSellInfo.text = $"Select an item in your stash to see what {_trader.Name} pays.";
+                _labelSellInfo.text = $"Select an item, drag it onto this panel to see what "
+                + $"{_trader.Name} pays, or drag it inside the grid to move it.";
                 _sellButton.SetEnabled(false);
                 return;
             }
