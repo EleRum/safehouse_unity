@@ -639,15 +639,22 @@
     height: 32px;
     padding-left: 8px;
     padding-right: 8px;
-    background-color: rgb(255, 255, 255);
+    background-color: rgb(20, 23, 27);
     border-width: 1px;
-    border-color: rgb(196, 202, 208);
-    color: rgb(20, 23, 26);
+    border-color: rgb(42, 48, 56);
+    border-radius: 0;
+    color: rgb(230, 233, 236);
     -unity-font-style: normal;
     font-size: 13px;
 }
 .sheet-field .unity-base-field__input .unity-text-element {
-    color: rgb(20, 23, 26);
+    color: rgb(230, 233, 236);
+}
+.sheet-field .unity-base-field__input:hover {
+    border-color: rgb(59, 68, 80);
+}
+.sheet-field .unity-base-field__input:focus {
+    border-color: rgb(217, 164, 65);
 }
 .sheet-field-wide {
     width: 100%;
@@ -679,3 +686,25 @@
 #character-scroll .unity-base-slider__dragger { background-color: rgb(59, 68, 80); border-width: 0; }
 #character-scroll .unity-scroller__low-button,
 #character-scroll .unity-scroller__high-button { display: none; }
+
+/* ------------------------------------------------------------------ text inputs
+
+   Unity's default runtime skin paints the editable element itself (.unity-text-input) white. The
+   field's own background is only the frame around that element, so setting the field alone leaves
+   the box white - both have to be set. One rule here covers every text field in the project. */
+
+.unity-text-input {
+    background-color: rgb(20, 23, 27);
+    border-width: 0;
+    border-radius: 0;
+    color: rgb(230, 233, 236);
+}
+
+.unity-text-input:hover {
+    background-color: rgb(24, 28, 33);
+}
+
+.unity-text-element.unity-base-text-field__input,
+.unity-text-input .unity-text-element {
+    color: rgb(230, 233, 236);
+}
