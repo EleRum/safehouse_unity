@@ -22,10 +22,12 @@ namespace Safehouse.Core
 
         // Fixed for now. The data says a rig's or backpack's "capacity" is its cell count (LV-119 = 24,
         // 6Sh118 = 48), so these should eventually follow what is worn; until then every character has these.
-        public const int DefaultRigWidth = 6;
-        public const int DefaultRigHeight = 4;
-        public const int DefaultBackpackWidth = 6;
-        public const int DefaultBackpackHeight = 8;
+        // What a character carries with no rig and no backpack. Equipping either one replaces the grid
+        // with that item's own capacity, so these are only the empty-handed fallback.
+        public const int DefaultRigWidth = 2;
+        public const int DefaultRigHeight = 3;
+        public const int DefaultBackpackWidth = 2;
+        public const int DefaultBackpackHeight = 3;
 
         public Profile(string profileId, string displayName, int money,
             StashGrid stash, StashGrid rig, StashGrid backpack,

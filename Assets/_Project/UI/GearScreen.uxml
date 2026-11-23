@@ -84,35 +84,35 @@
                     <ui:VisualElement class="card" style="width: 160px; padding: 10px 8px; margin-right: 10px; justify-content: center;">
                         <ui:VisualElement name="row-head" style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
                             <ui:Label text="HEAD" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="35 / 35" class="text-mono text-good" style="font-size: 8px;" />
+                            <ui:Label name="bp-head" text="" class="text-mono text-good" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
                             <ui:Label text="THORAX" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="85 / 85" class="text-mono text-good" style="font-size: 8px;" />
+                            <ui:Label name="bp-thorax" text="" class="text-mono text-good" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
                             <ui:Label text="STOMACH" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="52 / 70" class="text-mono text-warn" style="font-size: 8px;" />
+                            <ui:Label name="bp-stomach" text="" class="text-mono text-warn" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
                             <ui:Label text="L. ARM" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="60 / 60" class="text-mono text-good" style="font-size: 8px;" />
+                            <ui:Label name="bp-arm-l" text="" class="text-mono text-good" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
                             <ui:Label text="R. ARM" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="41 / 60" class="text-mono text-danger" style="font-size: 8px;" />
+                            <ui:Label name="bp-arm-r" text="" class="text-mono text-danger" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
                             <ui:Label text="L. LEG" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="65 / 65" class="text-mono text-good" style="font-size: 8px;" />
+                            <ui:Label name="bp-leg-l" text="" class="text-mono text-good" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 8px;">
                             <ui:Label text="R. LEG" class="text-label" style="font-size: 8px;" />
-                            <ui:Label text="65 / 65" class="text-mono text-good" style="font-size: 8px;" />
+                            <ui:Label name="bp-leg-r" text="" class="text-mono text-good" style="font-size: 8px;" />
                         </ui:VisualElement>
                         <ui:VisualElement style="flex-direction: row; justify-content: space-between; border-top-width: 1px; border-top-color: rgb(36, 43, 51); padding-top: 7px;">
                             <ui:Label text="TOTAL" class="text-label" />
-                            <ui:Label text="403" class="text-mono" />
+                            <ui:Label name="bp-total" text="" class="text-mono" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
@@ -167,32 +167,32 @@
                     <ui:VisualElement style="flex-direction: row; align-items: center; margin-bottom: 9px;">
                         <ui:Label text="ABILITIES" class="text-label" style="letter-spacing: 2px; margin-right: 8px;" />
                         <ui:VisualElement class="divider-h" style="margin-right: 8px;" />
-                        <ui:Label text="3 / 5 / 7 / 10" class="text-mono text-muted" style="font-size: 10px;" />
+                        <ui:Label name="ab-range" text="3 / 5 / 7 / 10" class="text-mono text-muted" style="font-size: 10px;" />
                     </ui:VisualElement>
                     <ui:VisualElement style="flex-direction: row; flex-wrap: wrap;">
                         <ui:VisualElement style="width: 33%; align-items: center; margin-bottom: 8px;">
-                            <ui:Label text="7" class="text-mono text-good" style="font-size: 19px;" />
+                            <ui:Label name="ab-strength" text="" class="text-mono text-good" style="font-size: 19px;" />
                             <ui:Label text="STRENGTH" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center; margin-bottom: 8px;">
-                            <ui:Label text="5" class="text-mono" style="font-size: 19px;" />
-                            <ui:Label text="ENDURANCE" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-dexterity" text="" class="text-mono" style="font-size: 19px;" />
+                            <ui:Label text="DEXTERITY" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center; margin-bottom: 8px;">
-                            <ui:Label text="3" class="text-mono text-danger" style="font-size: 19px;" />
-                            <ui:Label text="HEALTH" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-agility" text="" class="text-mono text-danger" style="font-size: 19px;" />
+                            <ui:Label text="AGILITY" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center;">
-                            <ui:Label text="10" class="text-mono text-accent" style="font-size: 19px;" />
-                            <ui:Label text="PERCEPTION" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-intelligence" text="" class="text-mono text-accent" style="font-size: 19px;" />
+                            <ui:Label text="INTELLIGENCE" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center;">
-                            <ui:Label text="5" class="text-mono" style="font-size: 19px;" />
+                            <ui:Label name="ab-charisma" text="" class="text-mono" style="font-size: 19px;" />
                             <ui:Label text="CHARISMA" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center;">
-                            <ui:Label text="5" class="text-mono" style="font-size: 19px;" />
-                            <ui:Label text="INTELLECT" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-sense" text="" class="text-mono" style="font-size: 19px;" />
+                            <ui:Label text="SENSE" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -208,16 +208,16 @@
 
                 <ui:VisualElement style="margin-bottom: 12px;">
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
-                        <ui:Label text="RIG — SPIRITUS LV-119" class="text-label" style="letter-spacing: 1.6px;" />
-                        <ui:Label text="6 × 4" class="text-mono text-muted" style="font-size: 10px;" />
+                        <ui:Label name="label-rig-grid" text="RIG" class="text-label" style="letter-spacing: 1.6px;" />
+                        <ui:Label name="label-rig-size" text="6 × 4" class="text-mono text-muted" style="font-size: 10px;" />
                     </ui:VisualElement>
                     <sh:GridBackground name="rig-grid" pitch="48" style="width: 288px; height: 192px;" />
                 </ui:VisualElement>
 
                 <ui:VisualElement>
                     <ui:VisualElement style="flex-direction: row; justify-content: space-between; margin-bottom: 6px;">
-                        <ui:Label text="BACKPACK — 6SH118 RAID" class="text-label" style="letter-spacing: 1.6px;" />
-                        <ui:Label text="6 × 8" class="text-mono text-muted" style="font-size: 10px;" />
+                        <ui:Label name="label-backpack-grid" text="BACKPACK" class="text-label" style="letter-spacing: 1.6px;" />
+                        <ui:Label name="label-backpack-size" text="6 × 8" class="text-mono text-muted" style="font-size: 10px;" />
                     </ui:VisualElement>
                     <sh:GridBackground name="backpack-grid" pitch="48" style="width: 288px; height: 384px;" />
                 </ui:VisualElement>
@@ -275,9 +275,11 @@
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
-                    <ui:VisualElement style="justify-content: flex-end;">
-                        <ui:Button name="btn-equip" text="EQUIP" class="btn btn-primary" style="margin-bottom: 6px; font-size: 11px;" />
-                        <ui:Button name="btn-to-hideout" text="TO HIDEOUT" class="btn btn-outline" style="font-size: 11px;" />
+                    <ui:VisualElement style="flex-direction: row; justify-content: flex-end; flex-wrap: wrap;">
+                        <ui:Button name="btn-use" text="USE" class="btn btn-primary" style="margin-left: 6px; font-size: 11px; width: 88px;" />
+                        <ui:Button name="btn-open" text="OPEN" class="btn btn-outline" style="margin-left: 6px; font-size: 11px; width: 88px;" />
+                        <ui:Button name="btn-equip" text="EQUIP" class="btn btn-primary" style="margin-left: 6px; font-size: 11px; width: 88px;" />
+                        <ui:Button name="btn-to-hideout" text="TO HIDEOUT" class="btn btn-outline" style="margin-left: 6px; font-size: 11px; width: 110px;" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </sh:FacetedPanel>
@@ -286,15 +288,15 @@
         <!-- BOTTOM BAR -->
         <ui:VisualElement class="bar bar-bottom">
             <ui:VisualElement style="flex-direction: row; align-items: center; margin-right: 28px;">
-                <ui:Label text="28.4" class="text-mono" style="margin-right: 6px;" />
-                <ui:Label text="/ 42.0 KG" class="text-muted" style="font-size: 11px;" />
+                <ui:Label name="load-weight" text="0.0" class="text-mono" style="margin-right: 6px;" />
+                <ui:Label name="load-weight-max" text="/ — KG" class="text-muted" style="font-size: 11px;" />
             </ui:VisualElement>
             <ui:VisualElement style="flex-direction: row; align-items: center; margin-right: 28px;">
-                <ui:Label text="403" class="text-mono text-good" style="margin-right: 6px;" />
-                <ui:Label text="/ 440 HP" class="text-muted" style="font-size: 11px;" />
+                <ui:Label name="load-hp" text="0" class="text-mono" style="margin-right: 6px;" />
+                <ui:Label name="load-hp-max" text="/ 440 HP" class="text-muted" style="font-size: 11px;" />
             </ui:VisualElement>
             <ui:VisualElement style="flex-direction: row; align-items: center;">
-                <ui:Label text="LIGHT BLEED — RIGHT ARM" class="text-danger" style="font-size: 11px; letter-spacing: 1.2px;" />
+                <ui:Label name="load-condition" text="" class="text-muted" style="font-size: 11px; letter-spacing: 1.2px;" />
             </ui:VisualElement>
             <ui:VisualElement style="flex-grow: 1;" />
             <ui:Label text="CUSTOMS · NIGHT" class="text-muted" style="font-size: 11px; letter-spacing: 1.4px; margin-right: 20px;" />

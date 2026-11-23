@@ -168,6 +168,8 @@ namespace Safehouse.Data
                 throw new StorageException("A character cannot be created while saving is unavailable.");
             }
 
+            PruneOrder();
+
             if (Repository.CharacterIds().Count >= CharacterSheet.MaxCharacters)
             {
                 throw new StorageException($"At most {CharacterSheet.MaxCharacters} characters can be kept.");
@@ -185,6 +187,43 @@ namespace Safehouse.Data
 
             Profile = profile;
             return profile;
+        }
+
+        /// <summary>
+        /// Drops a character's file and forgets it in the account's order. The order is what counts
+        /// against <see cref="Account.MaxCharacterOrder"/> and what the hideout reads as its
+        /// population, so a deleted character that stayed listed would eventually refuse new ones.
+        /// </summary>
+        public void DeleteCharacter(string profileId)
+        {
+            if (Repository == null)
+            {
+                throw new StorageException("A character cannot be deleted while saving is unavailable.");
+            }
+
+            Repository.Delete(profileId);
+            var kept = Account.CharacterOrder.Where(id => id != profileId).ToList();
+            if (kept.Count != Account.CharacterOrder.Count)
+            {
+                var account = Account.With(characterOrder: kept);
+                AccountRepository.Save(account);
+                Account = account;
+            }
+        }
+
+        /// <summary>Forgets ids in the order that no longer have a save file.</summary>
+        private void PruneOrder()
+        {
+            var present = Repository.CharacterIds();
+            var kept = Account.CharacterOrder.Where(present.Contains).ToList();
+            if (kept.Count == Account.CharacterOrder.Count)
+            {
+                return;
+            }
+
+            var account = Account.With(characterOrder: kept);
+            AccountRepository.Save(account);
+            Account = account;
         }
 
         /// <summary>Opens another character. The current one is untouched if that fails.</summary>

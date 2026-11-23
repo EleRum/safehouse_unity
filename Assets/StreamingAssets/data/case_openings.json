@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "note": "Which stashed case can be opened, what it rolls from, and which keys it needs. The loot itself comes from containers.json - the same tables the raid nodes search - so a case found in a raid gives back what that kind of container holds. A case with keys stays with the player; the key is not consumed, exactly like a door key.",
+  "cases": [
+    {
+      "item": "weapon-case",
+      "kind": "weapon-box",
+      "keys": [ "weapon-safe-key" ]
+    },
+    {
+      "item": "t-h-i-c-c-weapon-case",
+      "kind": "weapon-box",
+      "keys": [ "weapon-safe-key" ]
+    },
+    {
+      "item": "ammunition-case",
+      "kind": "wooden-ammo-box",
+      "keys": []
+    },
+    {
+      "item": "medicine-case",
+      "kind": "medcase",
+      "keys": []
+    },
+    {
+      "item": "grenade-case",
+      "kind": "grenade-box",
+      "keys": []
+    },
+    {
+      "item": "toolbox-discord-version",
+      "kind": "toolbox",
+      "keys": []
+    },
+    {
+      "item": "key-case",
+      "kind": "drawer",
+      "keys": []
+    },
+    {
+      "item": "lucky-scav-junk-box",
+      "kind": "ground-cache",
+      "keys": []
+    }
+  ]
+}

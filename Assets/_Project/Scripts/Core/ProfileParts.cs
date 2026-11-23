@@ -57,17 +57,24 @@ namespace Safehouse.Core
         public static readonly IReadOnlyList<int> AbilityTiers = new[] { 3, 5, 7, 10 };
 
         /// <summary>Bonus points a tier costs (negative: it gives points back).</summary>
-        public static int AbilityCost(int tier)
+        /// <summary>
+        /// What a score costs out of <see cref="AbilityBonusPool"/>: one point per step above the base,
+        /// and points back below it. Any whole number in <see cref="AbilityMin"/>..<see cref="AbilityMax"/>
+        /// is allowed - the four tiers this used to accept were an arbitrary restriction, not a rule.
+        /// </summary>
+        public static int AbilityCost(int score)
         {
-            switch (tier)
+            if (score < AbilityMin || score > AbilityMax)
             {
-                case 3: return -2;
-                case 5: return 0;
-                case 7: return 2;
-                case 10: return 5;
-                default: throw new ValidationException($"Ability scores must be one of {string.Join(", ", AbilityTiers)}.");
+                throw new ValidationException(
+                    $"Ability scores must be between {AbilityMin} and {AbilityMax}.");
             }
+
+            return score - AbilityBase;
         }
+
+        public const int AbilityMin = 1;
+        public const int AbilityMax = 10;
 
         public static int MaxHealthOf(string bodyPart) =>
             BodyPartMaxHealth.First(pair => pair.Key == bodyPart).Value;

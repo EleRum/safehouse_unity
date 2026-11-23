@@ -70,6 +70,10 @@ namespace Safehouse.UI
         private GearData _gear;
         private Loadout _loadout;
         private IconLibrary _icons;
+        private IReadOnlyList<CaseDefinition> _cases;
+        private LootTables _lootTables;
+        private Button _openButton;
+        private Button _useButton;
         private VisualElement _root;
         private readonly List<GridView> _views = new List<GridView>();
         private readonly List<SlotView> _slots = new List<SlotView>();
@@ -94,6 +98,9 @@ namespace Safehouse.UI
         {
             _catalog = CatalogLoader.Load();
             _gear = GearLoader.Load(_catalog);
+            var containers = MapLoader.LoadContainers(_catalog);
+            _cases = CaseOpeningLoader.Load(_catalog, containers);
+            _lootTables = new LootTables(_catalog, containers);
             _icons = new IconLibrary();
 
             _root = GetComponent<UIDocument>().rootVisualElement;
@@ -167,6 +174,10 @@ namespace Safehouse.UI
             // SAVE PRESET exports the current loadout and stash as JSON beside the save folder.
             _root.Q<Button>("btn-deploy").clicked += () => ScreenNavigator.Go("scavenge");
             _root.Q<Button>("btn-to-hideout").clicked += () => ScreenNavigator.Go("hideout");
+            _useButton = _root.Q<Button>("btn-use");
+            _useButton.clicked += UseSelectedMed;
+            _openButton = _root.Q<Button>("btn-open");
+            _openButton.clicked += OpenSelectedCase;
             _root.Q<Button>("btn-equip").clicked += EquipSelected;
             _root.Q<Button>("btn-sort").clicked += SortStash;
             _root.Q<Button>("btn-save-preset").clicked += SavePreset;
@@ -241,6 +252,193 @@ namespace Safehouse.UI
             }
         }
 
+        /// <summary>
+        /// What the two carried grids are. The grids themselves always exist on the profile, so an
+        /// empty rig slot still shows a 6x4 box - the header is what tells the player nothing is worn,
+        /// and the name comes from the item actually equipped rather than from the design mock-up.
+        /// </summary>
+        private void ApplyCarried(Profile profile)
+        {
+            var rig = _loadout.Get(LoadoutSlots.Rig);
+            var backpack = _loadout.Get(LoadoutSlots.Backpack);
+
+            var rigLabel = _root.Q<Label>("label-rig-grid");
+            if (rigLabel != null)
+            {
+                rigLabel.text = rig == null ? "RIG — NOTHING WORN" : "RIG — " + NameOf(rig.ItemId);
+                rigLabel.EnableInClassList("text-muted", rig == null);
+            }
+
+            var backpackLabel = _root.Q<Label>("label-backpack-grid");
+            if (backpackLabel != null)
+            {
+                backpackLabel.text = backpack == null
+                    ? "BACKPACK — NOTHING WORN"
+                    : "BACKPACK — " + NameOf(backpack.ItemId);
+                backpackLabel.EnableInClassList("text-muted", backpack == null);
+            }
+
+            // The lattice is an element with a size of its own; without this it keeps the size the UXML
+            // declared, so a resized grid showed the same squares with a different number above it.
+            var rigLattice = _root.Q<VisualElement>("rig-grid");
+            if (rigLattice != null)
+            {
+                rigLattice.style.width = profile.Rig.StashWidth * Pitch;
+                rigLattice.style.height = profile.Rig.StashHeight * Pitch;
+            }
+
+            var backpackLattice = _root.Q<VisualElement>("backpack-grid");
+            if (backpackLattice != null)
+            {
+                backpackLattice.style.width = profile.Backpack.StashWidth * Pitch;
+                backpackLattice.style.height = profile.Backpack.StashHeight * Pitch;
+            }
+
+            var rigSize = _root.Q<Label>("label-rig-size");
+            if (rigSize != null)
+            {
+                rigSize.text = profile.Rig.StashWidth + " × " + profile.Rig.StashHeight;
+            }
+
+            var backpackSize = _root.Q<Label>("label-backpack-size");
+            if (backpackSize != null)
+            {
+                backpackSize.text = profile.Backpack.StashWidth + " × " + profile.Backpack.StashHeight;
+            }
+        }
+
+        private string NameOf(string itemId) =>
+            itemId != null && _catalog.TryGetValue(itemId, out var item) ? item.Name.ToUpperInvariant() : "?";
+
+        /// <summary>The seven body parts, the abilities and the bottom bar, from the open character.</summary>
+        private void ApplyVitals(Profile profile)
+        {
+            (string Part, string Element)[] parts =
+            {
+                ("head", "bp-head"), ("thorax", "bp-thorax"), ("stomach", "bp-stomach"),
+                ("left_arm", "bp-arm-l"), ("right_arm", "bp-arm-r"),
+                ("left_leg", "bp-leg-l"), ("right_leg", "bp-leg-r"),
+            };
+
+            var injured = new List<string>();
+            foreach (var (part, element) in parts)
+            {
+                var label = _root.Q<Label>(element);
+                if (label == null)
+                {
+                    continue;
+                }
+
+                var have = profile.BodyParts.TryGetValue(part, out var current) ? current : 0;
+                var max = CharacterSheet.MaxHealthOf(part);
+                label.text = have + " / " + max;
+
+                var ratio = max <= 0 ? 0f : have / (float)max;
+                label.EnableInClassList("text-good", ratio >= 0.999f);
+                label.EnableInClassList("text-warn", ratio < 0.999f && ratio > 0f);
+                label.EnableInClassList("text-danger", ratio <= 0f);
+                if (ratio < 0.999f)
+                {
+                    injured.Add(part.Replace('_', ' ').ToUpperInvariant());
+                }
+            }
+
+            var total = _root.Q<Label>("bp-total");
+            if (total != null)
+            {
+                total.text = profile.Health.ToString();
+            }
+
+            // The panel shows the profile's own six; CharacterSheet.Abilities has eight and the
+            // vocabulary is not the Gundog sheet's (that one is the class sheet, shown on CHARACTER).
+            (string Ability, string Element)[] abilities =
+            {
+                ("strength", "ab-strength"), ("dexterity", "ab-dexterity"), ("agility", "ab-agility"),
+                ("intelligence", "ab-intelligence"), ("charisma", "ab-charisma"), ("sense", "ab-sense"),
+            };
+
+            foreach (var (ability, element) in abilities)
+            {
+                var label = _root.Q<Label>(element);
+                if (label == null)
+                {
+                    continue;
+                }
+
+                var value = profile.Abilities.TryGetValue(ability, out var number)
+                    ? number
+                    : CharacterSheet.AbilityBase;
+                label.text = value.ToString();
+                label.EnableInClassList("text-good", value >= 7);
+                label.EnableInClassList("text-danger", value <= 3);
+            }
+
+            var range = _root.Q<Label>("ab-range");
+            if (range != null)
+            {
+                range.text = CharacterSheet.AbilityMin + " – " + CharacterSheet.AbilityMax;
+            }
+
+            var weight = 0.0;
+            foreach (var grid in new[] { profile.Stash, profile.Rig, profile.Backpack })
+            {
+                PlacementRules.StashTotals(grid, _catalog, out _, out var grams, out _);
+                weight += grams;
+            }
+
+            var weightLabel = _root.Q<Label>("load-weight");
+            if (weightLabel != null)
+            {
+                weightLabel.text = weight.ToString("0.0");
+            }
+
+            var weightMax = _root.Q<Label>("load-weight-max");
+            if (weightMax != null)
+            {
+                weightMax.text = "/ " + ExpeditionRules.CarryLimit(profile, _gear) + " KG";
+            }
+
+            var hp = _root.Q<Label>("load-hp");
+            if (hp != null)
+            {
+                hp.text = profile.Health.ToString();
+                hp.EnableInClassList("text-good", profile.Health >= CharacterSheet.MaxHealth);
+                hp.EnableInClassList("text-danger", profile.Health < CharacterSheet.MaxHealth / 3);
+            }
+
+            var hpMax = _root.Q<Label>("load-hp-max");
+            if (hpMax != null)
+            {
+                hpMax.text = "/ " + CharacterSheet.MaxHealth + " HP";
+            }
+
+            // Bleeding and fractures are separate from missing HP: a character can be at full health and
+            // still be bleeding out, which is exactly the state this line used to call "no injuries".
+            var flags = new List<string>();
+            foreach (var pair in profile.Conditions)
+            {
+                foreach (var name in pair.Value)
+                {
+                    var part = pair.Key.Replace('_', ' ').ToUpperInvariant();
+                    var label = name.Replace('_', ' ').ToUpperInvariant();
+                    flags.Add(part + " " + label);
+                    if (!injured.Contains(part))
+                    {
+                        injured.Add(part);
+                    }
+                }
+            }
+
+            var condition = _root.Q<Label>("load-condition");
+            if (condition != null)
+            {
+                var words = flags.Count > 0 ? flags : injured;
+                condition.text = words.Count == 0 ? "NO INJURIES" : string.Join("  ·  ", words);
+                condition.EnableInClassList("text-danger", words.Count > 0);
+                condition.EnableInClassList("text-muted", words.Count == 0);
+            }
+        }
+
         /// <summary>Loads the open character into the screen: its grids (sized to them), its gear, its name.</summary>
         private void ApplyProfile()
         {
@@ -270,6 +468,10 @@ namespace Safehouse.UI
                 SelectItem(highestValueId);
             }
 
+            ApplyCarried(profile);
+
+            ApplyVitals(profile);
+
             _labelCharacter.text = profile.DisplayName.ToUpperInvariant()
                 + (profile.Status == CharacterSheet.Active ? "" : " · " + profile.Status.Replace('_', ' ').ToUpperInvariant());
             if (_session.Saves && DataFolderOverride == null)
@@ -288,6 +490,28 @@ namespace Safehouse.UI
             _labelSelectedWeight.text = "—";
             _labelSelectedPerCell.text = "—";
             _swatchSelected.style.backgroundImage = StyleKeyword.None;
+            RefreshActions();
+        }
+
+        /// <summary>
+        /// USE and OPEN are only on screen while the selected item can use them, so the row is not
+        /// cluttered with buttons that would only answer "that is not a medkit".
+        /// </summary>
+        private void RefreshActions()
+        {
+            var itemId = _selectedInstanceId == null ? null : ItemIdOf(_selectedInstanceId);
+            var isMed = itemId != null && HealingRules.IsMed(_gear, itemId);
+            var isCase = itemId != null && CaseRules.Find(_cases, itemId) != null;
+
+            if (_useButton != null)
+            {
+                _useButton.style.display = isMed ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            if (_openButton != null)
+            {
+                _openButton.style.display = isCase ? DisplayStyle.Flex : DisplayStyle.None;
+            }
         }
 
         /// <summary>The open character's name.</summary>
@@ -629,6 +853,7 @@ namespace Safehouse.UI
         /// <summary>Redraws everything that depends on which items are where, keeping the selection.</summary>
         private void RefreshAll()
         {
+            ApplyCarried(_session.Profile); // the carried headers follow the grids
             BuildCells();
             ApplyStashFilter();
             RenderSlots();
@@ -1299,6 +1524,8 @@ namespace Safehouse.UI
                 MarkSlotSelected(SlotViewFor(worn.Slot));
             }
 
+            RefreshActions();
+
             var item = _catalog[ItemIdOf(instanceId)];
             PlacementRules.Footprint(item, RotationOf(instanceId), out var width, out var height);
             var color = RarityPalette.For(item.Rarity);
@@ -1341,6 +1568,129 @@ namespace Safehouse.UI
         private Button _filterMeds;
         private Button _filterBarter;
         private string _stashFilter = "ALL";
+
+        /// <summary>
+        /// Uses one medkit from the stash on the open character: heals its pool across the worst parts
+        /// first and clears what it treats. Before this there was no way to recover outside a fight.
+        /// </summary>
+        private void UseSelectedMed()
+        {
+            if (_selectedInstanceId == null)
+            {
+                ShowMessage("Select a medkit in the stash first.");
+                return;
+            }
+
+            var itemId = ItemIdOf(_selectedInstanceId);
+            if (!HealingRules.IsMed(_gear, itemId))
+            {
+                ShowMessage($"{_catalog[itemId].Name} is not a medkit.");
+                return;
+            }
+
+            if (!HealingRules.WouldHelp(_session.Profile, _gear.Meds[itemId]))
+            {
+                ShowMessage(_catalog[itemId].Name + " would not change anything: it heals "
+                    + (_gear.Meds[itemId].Heal > 0 ? _gear.Meds[itemId].Heal + " HP" : "no HP")
+                    + " and clears nothing you have. Nothing was used.");
+                return;
+            }
+
+            Profile treated;
+            int healed;
+            IReadOnlyList<string> cleared;
+            try
+            {
+                (treated, healed, cleared) = HealingRules.Use(_session.Profile, _gear.Meds[itemId], _catalog);
+            }
+            catch (ValidationException error)
+            {
+                ShowMessage(error.Message);
+                return;
+            }
+
+            // Not Persist(): that rebuilds the profile from the grids alone, which would throw away the
+            // body parts and conditions this medkit just changed.
+            try
+            {
+                _session.Commit(treated);
+            }
+            catch (StorageException error)
+            {
+                ShowMessage(error.Message);
+                return;
+            }
+
+            StashView.Grid = treated.Stash;
+            _selectedInstanceId = null;
+            RefreshAll();
+            ClearSelection();
+            ApplyVitals(_session.Profile); // the body-part panel is not part of RefreshAll
+
+            var parts = new List<string>();
+            if (healed > 0)
+            {
+                parts.Add(healed + " HP healed");
+            }
+
+            parts.AddRange(cleared);
+            ShowMessage(parts.Count == 0
+                ? _catalog[itemId].Name + " had nothing to treat."
+                : _catalog[itemId].Name + ": " + string.Join(", ", parts));
+        }
+
+        /// <summary>
+        /// Opens a stashed case: the case is consumed and what it holds lands in the stash. A locked
+        /// case says what it needs instead of just failing, and one that will not fit changes nothing.
+        /// </summary>
+        private void OpenSelectedCase()
+        {
+            if (_selectedInstanceId == null)
+            {
+                ShowMessage("Select a case in the stash first.");
+                return;
+            }
+
+            var itemId = ItemIdOf(_selectedInstanceId);
+            var definition = CaseRules.Find(_cases, itemId);
+            if (definition == null)
+            {
+                ShowMessage($"{_catalog[itemId].Name} does not open.");
+                return;
+            }
+
+            Profile opened;
+            IReadOnlyList<string> found;
+            try
+            {
+                (opened, found) = CaseRules.Open(_session.Profile, definition, _lootTables,
+                    PythonRandom.Create(), _catalog);
+            }
+            catch (ValidationException error)
+            {
+                ShowMessage(error.Message);
+                return;
+            }
+
+            var saveError = Persist(new Dictionary<GridView, StashGrid> { [StashView] = opened.Stash });
+            if (saveError != null)
+            {
+                return;
+            }
+
+            StashView.Grid = opened.Stash;
+            _selectedInstanceId = null;
+            RefreshAll();
+            ClearSelection();
+            ApplyVitals(_session.Profile);
+
+            var names = found
+                .Select(id => _catalog.TryGetValue(id, out var item) ? item.Name : id)
+                .ToList();
+            ShowMessage(names.Count == 0
+                ? "The case was empty."
+                : "Opened: " + string.Join(", ", names));
+        }
 
         /// <summary>Wears the selected item in the slot its own type belongs to.</summary>
         private void EquipSelected()

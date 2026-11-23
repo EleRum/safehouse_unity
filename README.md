@@ -157,6 +157,62 @@ Everything below is new relative to upstream.
 - The Gundog character sheet is in English; it was hard-coded Korean, which no bundled font could
   render.
 
+**Quests**
+- A data-driven chain in `data/quests.json`: six quests across Prapor and Therapist, with objectives of
+  kind `extract`, `loot` and `deliver`, and rewards of roubles, standing and items. `QuestLoader`
+  checks every cross-reference and refuses cycles; `QuestRules` derives each status (Locked / Open /
+  Done / Claimed) instead of storing it.
+- The QUESTS screen lists the chain, shows what each quest wants, and its CLAIM button only pays out
+  once the objective is met. Finishing an expedition advances the chain, so trader standing can be
+  earned rather than typed into the GM box.
+- 16 EditMode tests cover the rules, alongside the 11 for the snapshot repository.
+
+**Character creation**
+- GEAR opens the data folder and hands over to CHARACTER on the next frame, so the game starts with
+  *who am I playing*. The roster shows every character with a portrait, name, status and money; OPEN
+  and DELETE always respond — both used to be disabled for the character already open, which with a
+  single save meant the whole roster was dead.
+- NEW CHARACTER sits above the saves and opens a separate two-page flow: pick a portrait, then fill in
+  the sheet. A portrait comes from `icon_cache/avatars` and is remembered in `PlayerPrefs`, so the save
+  format is untouched.
+- Identity fields are text boxes with a preset menu this screen draws itself. A `DropdownField`'s popup
+  is attached outside the document's tree, where this document's stylesheet cannot reach it, so it came
+  out in Unity's white default skin.
+- Abilities are any whole number from 1 to 10, paid for out of the same ten-point pool. They used to be
+  four tiers (3, 5, 7, 10) and `AbilityCost` threw on anything else.
+- A **starting kit** — four presets (RIFLEMAN, SCOUT, BREACHER, MARKSMAN) — puts a weapon, ammunition
+  and a bandage into the new character's stash.
+
+**Opening stashed cases**
+- `data/case_openings.json` ties eight cases (weapon, ammunition, medicine, grenade, key, toolbox, junk
+  box) to the `containers.json` tables the raid nodes already search. Two of them want a key.
+- OPEN consumes the case and rolls its contents into the stash; a locked case names the key it needs
+  instead of failing quietly. Keys are not consumed, the way a door key is not.
+- Fence now prices all 4832 items, so loot is never dead weight: 40% of base value, capped under the
+  cheapest offer so the load-time arbitrage check still passes. Until now 556 items could not be sold
+  to anyone.
+
+**Healing**
+- Nothing outside a fight ever wrote to body parts, so a character who came home wounded stayed wounded
+  for good; the hideout's Medstation does nothing to this day.
+- USE applies a medkit from the stash: its pool closes the worst wounds first, its flags clear the
+  conditions it treats, one item is consumed — and a kit that would change nothing is refused rather
+  than burned.
+- The GEAR bottom bar lists bleeding and fractures as well as missing hit points. It used to read
+  "no injuries" for a character at full health carrying two fractures and a heavy bleed.
+
+**Carrying**
+- Equipping a rig or backpack resizes its grid to that item's own capacity. The lattice is an element
+  declared at a fixed size in the UXML, so the number above it changed while the squares did not; both
+  follow the grid now.
+- An empty rig or backpack is 2x3. It used to be 6x4 / 6x8 — as large as the biggest rig and backpack in
+  the data — so putting a bag on could only make the carried space smaller.
+- `GearData.GridDimensions` holds the capacity exactly instead of rounding up to six columns, which was
+  handing an eight-cell bag twelve cells.
+- `migrate_grids.py` (next to `reset_trip.ps1`) brings existing saves onto these rules: it re-places
+  what a grid holds, moves what no longer fits into the stash, refuses to write a save it cannot fit,
+  and leaves a `.before-grids` copy behind.
+
 **Tests** — 11 EditMode tests for the snapshot repository: byte-for-byte round trip, ordering,
 pruning to six, two snapshots in the same second, a foreign character's snapshot, a damaged file
 being refused without touching the real save, and a reason that tries to escape its folder.
@@ -165,14 +221,20 @@ being refused without touching the real save, and a reason that tries to escape 
 
 ## Known gaps
 
-- **No quests.** The trader standing that loyalty levels need is still raised by hand on the TRADERS
   screen, so the loyalty chain is intentionally incomplete.
+- **Items cannot hold items.** A case is a flat object with a footprint, not a grid of its own, which
+  is why opening one consumes it instead of storing things inside it. Nesting would need a save format
+  change.
+- **Painkillers do nothing.** There is no `pain` condition - only `light_bleed`, `heavy_bleed` and
+  `fracture` - so the 40 of 56 medical items outside `gear.json`'s sixteen-entry `meds` table are loot
+  to sell, not medicine to use.
+- **The Medstation does nothing.** No facility except the stash, the generator and production is read.
 - **No main menu and no manual save.** The game opens the last character; every change is written
   immediately.
 - **No rotation on the TRADERS screen** — items can be moved there but not turned; GEAR has R.
-- The GEAR bottom bar's weight and health figures are hand-written text, not the character's real
   numbers. The SCAVENGE party panel's seven body-part bars *are* real.
-- The Gundog sheet (abilities, skills, classes, arts) is stored but not read by expeditions; the
+- **The Gundog sheet is stored, not read.** Its eight abilities use a different vocabulary from
+  the profile's own eight, and only the latter feeds an expedition.
   screen says so.
 - Trader portraits and item icons are not in the repository (see above), so a fresh clone has none.
 - Korean text in character bios has no bundled font.

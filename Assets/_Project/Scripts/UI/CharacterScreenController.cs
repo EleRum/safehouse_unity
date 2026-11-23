@@ -17,8 +17,10 @@ namespace Safehouse.UI
         private VisualElement _root;
         private ScrollView _scroll;
         private Label _error;
+        // The profile's own abilities - the ones an expedition builds a fighter from. The Gundog
+        // sheet's ability list is a different vocabulary and nothing reads it.
         private readonly Dictionary<string, int> _abilities =
-            Gundog.Abilities.ToDictionary(stat => stat.StatId, stat => Gundog.AbilityDefault);
+            CharacterSheet.Abilities.ToDictionary(ability => ability, ability => CharacterSheet.AbilityBase);
         private readonly Dictionary<string, string> _identity = new Dictionary<string, string>();
         private readonly List<TextField> _career = new List<TextField>();
         private readonly HashSet<string> _arts = new HashSet<string>();
@@ -36,6 +38,21 @@ namespace Safehouse.UI
         private Label _movementLabel;
         private Label _durabilityLabel;
         private Label _rosterStatus;
+        private Label _abilityPool;
+        private int _startingKit;
+
+        /// <summary>What a new character walks out of the hideout with. Ids are from items.json.</summary>
+        private static readonly (string Name, string Blurb, (string Item, int Count)[] Items)[] Kits =
+        {
+            ("RIFLEMAN", "AK-74N, two boxes of BT, two bandages",
+                new[] { ("kalashnikov-ak-74n-545x39-assault-rifle", 1), ("545x39mm-bt-gs", 2), ("army-bandage", 2) }),
+            ("SCOUT", "PP-91 Kedr, two boxes of 9x18, one bandage",
+                new[] { ("pp-91-kedr-9x18pm-submachine-gun", 1), ("9x18mm-pm-bzht-gzh", 2), ("army-bandage", 1) }),
+            ("BREACHER", "MP-133, two boxes of buckshot, two bandages",
+                new[] { ("mp-133-12ga-pump-action-shotgun", 1), ("1270-7mm-buckshot", 2), ("army-bandage", 2) }),
+            ("MARKSMAN", "SKS carbine, two boxes of PS, one AI-2 kit",
+                new[] { ("toz-simonov-sks-762x39-carbine", 1), ("762x39mm-ps-gzh", 2), ("ai-2-medkit", 1) }),
+        };
 
         private void OnEnable()
         {
@@ -88,6 +105,26 @@ namespace Safehouse.UI
         private bool _creating;
         private int _newAvatarIndex = -1;
 
+        /// <summary>A new character starts from the defaults, not from whatever was typed last time.</summary>
+        private void ResetForm()
+        {
+            foreach (var ability in CharacterSheet.Abilities)
+            {
+                _abilities[ability] = CharacterSheet.AbilityBase;
+            }
+
+            _identity.Clear();
+            _career.Clear();
+            _arts.Clear();
+            _main = "assault";
+            _sub = "scout";
+            _reward = 0;
+            _movement = 9;
+            _durability = 48;
+            _startingKit = 0;
+            _error.text = "";
+        }
+
         private void Build()
         {
             ClosePresets();
@@ -107,6 +144,7 @@ namespace Safehouse.UI
 
             var newCharacter = new Button(() =>
             {
+                ResetForm();
                 _creating = true;
                 _newAvatarIndex = -1;
                 Build();
@@ -181,10 +219,17 @@ namespace Safehouse.UI
             column.Add(identity);
 
             column.Add(Section("ABILITY"));
-            foreach (var stat in Gundog.Abilities)
+            _abilityPool = new Label("");
+            _abilityPool.AddToClassList("text-mono");
+            _abilityPool.style.fontSize = 12;
+            _abilityPool.style.marginBottom = 8;
+            column.Add(_abilityPool);
+            foreach (var ability in CharacterSheet.Abilities)
             {
-                column.Add(AbilityRow(stat));
+                column.Add(AbilityRow(ability));
             }
+
+            RefreshAbilityPool();
 
             column.Add(Section("CLASS"));
             column.Add(new Label("MAIN") { style = { marginBottom = 4 } });
@@ -222,6 +267,9 @@ namespace Safehouse.UI
             column.Add(Stepper("MOVEMENT", () => _movement, value => _movement = value, 0, Gundog.MaxMovement, _movementLabel));
             column.Add(Stepper("DURABILITY", () => _durability, value => _durability = value, 0, Gundog.MaxDurability, _durabilityLabel));
 
+            column.Add(Section("STARTING KIT"));
+            column.Add(KitPicker());
+
             var create = new Button(Create) { text = "CREATE" };
             create.AddToClassList("btn");
             create.AddToClassList("btn-primary");
@@ -230,6 +278,54 @@ namespace Safehouse.UI
             column.Add(create);
             RefreshClasses();
             return column;
+        }
+
+        /// <summary>The kits, one clickable card each; the chosen one is outlined.</summary>
+        private VisualElement KitPicker()
+        {
+            var row = new VisualElement
+            {
+                style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginBottom = 14 },
+            };
+
+            for (var i = 0; i < Kits.Length; i++)
+            {
+                var index = i;
+                var card = new Button(() =>
+                {
+                    _startingKit = index;
+                    Build();
+                });
+                card.AddToClassList("card");
+                card.style.flexDirection = FlexDirection.Column;
+                card.style.alignItems = Align.FlexStart;
+                card.style.width = 260;
+                card.style.marginRight = 10;
+                card.style.marginBottom = 8;
+                card.style.paddingLeft = 12;
+                card.style.paddingRight = 12;
+                card.style.paddingTop = 10;
+                card.style.paddingBottom = 10;
+                if (i == _startingKit)
+                {
+                    card.AddToClassList("sheet-art-on");
+                }
+
+                var title = new Label(Kits[i].Name);
+                title.style.fontSize = 14;
+                card.Add(title);
+
+                var blurb = new Label(Kits[i].Blurb);
+                blurb.AddToClassList("text-muted");
+                blurb.style.fontSize = 11;
+                blurb.style.whiteSpace = WhiteSpace.Normal;
+                blurb.style.marginTop = 4;
+                card.Add(blurb);
+
+                row.Add(card);
+            }
+
+            return row;
         }
 
         private void Create()
@@ -252,10 +348,27 @@ namespace Safehouse.UI
                     }
                 }
 
-                var sheet = new GundogSheet(_abilities, _main, _sub, _arts.OrderBy(id => id, StringComparer.Ordinal),
+                var sheet = new GundogSheet(Gundog.Abilities.ToDictionary(stat => stat.StatId, stat => Gundog.AbilityDefault),
+                    _main, _sub, _arts.OrderBy(id => id, StringComparer.Ordinal),
                     _career.Select(field => field.value.Trim()).ToList(), _reward, _movement, _durability,
                     Text("rank"), Text("language"), Text("occupation"), Text("era"));
                 var created = session.CreateCharacter(_name.value, bio, sheet);
+                if (created.Abilities.Any(pair => pair.Value != _abilities[pair.Key]))
+                {
+                    created = created.With(abilities: _abilities);
+                    session.Commit(created);
+                }
+
+                // the starting kit goes into the stash, one AddItems per line so a full stash refuses
+                // the whole thing rather than leaving half of it behind
+                var stash = created.Stash;
+                foreach (var (item, count) in Kits[_startingKit].Items)
+                {
+                    stash = InventoryRules.AddItems(stash, CatalogLoader.Load(), item, count);
+                }
+
+                created = created.With(stash: stash);
+                session.Commit(created);
                 if (_newAvatarIndex >= 0)
                 {
                     PlayerPrefs.SetInt("Safehouse.Avatar." + created.ProfileId, _newAvatarIndex);
@@ -610,7 +723,7 @@ namespace Safehouse.UI
 
             try
             {
-                session.Repository.Delete(profileId);
+                session.DeleteCharacter(profileId);
             }
             catch (Exception error)
             {
@@ -629,7 +742,8 @@ namespace Safehouse.UI
             FillClassRow(_mainRow, true);
             FillClassRow(_subRow, false);
             _skills.Clear();
-            var sheet = new GundogSheet(_abilities, _main, _sub, null,
+            var sheet = new GundogSheet(Gundog.Abilities.ToDictionary(stat => stat.StatId, stat => Gundog.AbilityDefault),
+                _main, _sub, null,
                 Enumerable.Repeat("", Gundog.CareerLines).ToList(), 0, 0, 0, "", "", "", "");
             var modifiers = sheet.SkillModifiers();
             foreach (var skill in Gundog.Skills)
@@ -710,32 +824,42 @@ namespace Safehouse.UI
             }
         }
 
-        private VisualElement AbilityRow(GundogStat stat)
+        private VisualElement AbilityRow(string ability)
         {
             var row = new VisualElement();
             row.AddToClassList("sheet-row");
-            var name = new Label(stat.Name);
+            var name = new Label(ability.ToUpperInvariant());
             name.AddToClassList("sheet-stat");
-            var value = new Label(_abilities[stat.StatId].ToString());
+            var value = new Label(_abilities[ability].ToString());
             value.AddToClassList("sheet-value");
             value.AddToClassList("text-mono");
             row.Add(name);
-            row.Add(Step("-", () => ChangeAbility(stat.StatId, -1, value)));
+            row.Add(Step("-", () => ChangeAbility(ability, -1, value)));
             row.Add(value);
-            row.Add(Step("+", () => ChangeAbility(stat.StatId, 1, value)));
+            row.Add(Step("+", () => ChangeAbility(ability, 1, value)));
             return row;
         }
 
-        private void ChangeAbility(string statId, int delta, Label value)
+        /// <summary>Abilities go up and down one point at a time, between 1 and 10.</summary>
+        private void ChangeAbility(string ability, int delta, Label value)
         {
-            var next = _abilities[statId] + delta;
-            if (next < Gundog.AbilityMin || next > Gundog.AbilityMax)
+            _abilities[ability] = Math.Max(CharacterSheet.AbilityMin,
+                Math.Min(CharacterSheet.AbilityMax, _abilities[ability] + delta));
+            value.text = _abilities[ability].ToString();
+            RefreshAbilityPool();
+        }
+
+        /// <summary>The bonus points the chosen tiers spend, out of the pool the profile allows.</summary>
+        private void RefreshAbilityPool()
+        {
+            if (_abilityPool == null)
             {
                 return;
             }
 
-            _abilities[statId] = next;
-            value.text = next.ToString();
+            var spent = _abilities.Values.Sum(CharacterSheet.AbilityCost);
+            _abilityPool.text = "SPENT " + spent + " / " + CharacterSheet.AbilityBonusPool;
+            _abilityPool.EnableInClassList("text-danger", spent > CharacterSheet.AbilityBonusPool);
         }
 
         private VisualElement Stepper(string caption, Func<int> read, Action<int> write, int low, int high, Label value)

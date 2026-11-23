@@ -276,7 +276,11 @@ namespace Safehouse.Core
 
             if (!Buys(trader, definition))
             {
-                return $"{trader.Name} does not buy {definition.Category}.";
+                // A trader with a price table buys exactly what it lists; the category message would be
+                // a lie about why the item was refused.
+                return trader.SellPrices.Count > 0
+                    ? $"{trader.Name} has no price for that."
+                    : $"{trader.Name} does not buy {definition.Category}.";
             }
 
             price = SellPrice(trader, definition, LoyaltyLevel(trader, StateOf(profile, trader.TraderId)));

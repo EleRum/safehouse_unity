@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace Safehouse.Core
@@ -111,9 +112,28 @@ namespace Safehouse.Core
                 return (0, 0);
             }
 
-            const int width = 6;
-            var height = (Capacity + width - 1) / width;
-            return (width, height);
+            // Among the boxes that hold exactly this many cells, prefer the one nearest six columns and
+            // the most square, so a bag is never one long row. Capacities with no such box (primes) fall
+            // back to six columns rounded up, which is what the old code did for everything.
+            var best = (Width: 6, Height: (Capacity + 5) / 6);
+            var bestScore = int.MaxValue;
+            for (var width = 2; width <= 8 && width <= Capacity; width++)
+            {
+                if (Capacity % width != 0)
+                {
+                    continue;
+                }
+
+                var height = Capacity / width;
+                var score = Math.Abs(width - 6) * 10 + Math.Abs(width - height);
+                if (score < bestScore)
+                {
+                    bestScore = score;
+                    best = (width, height);
+                }
+            }
+
+            return best;
         }
     }
 
