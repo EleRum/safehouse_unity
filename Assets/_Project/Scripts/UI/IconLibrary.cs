@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 
 namespace Safehouse.UI
@@ -31,9 +32,11 @@ namespace Safehouse.UI
         private readonly string _folder;
         private readonly string _artFolder;
         private readonly string _traderFolder;
+        private readonly string _avatarFolder;
         private readonly Dictionary<string, Texture2D> _loaded = new Dictionary<string, Texture2D>();
         private readonly Dictionary<string, Texture2D> _loadedArt = new Dictionary<string, Texture2D>();
         private readonly Dictionary<string, Texture2D> _loadedTraders = new Dictionary<string, Texture2D>();
+        private readonly Dictionary<string, Texture2D> _loadedAvatars = new Dictionary<string, Texture2D>();
 
         /// <param name="rootFolder">The icon_cache folder; <see cref="DefaultFolder"/> when omitted.</param>
         public IconLibrary(string rootFolder = null)
@@ -42,6 +45,7 @@ namespace Safehouse.UI
             _folder = Path.Combine(root, Size.ToString());
             _artFolder = Path.Combine(root, "art");
             _traderFolder = Path.Combine(root, "traders");
+            _avatarFolder = Path.Combine(root, "avatars");
         }
 
         /// <summary>
@@ -90,6 +94,35 @@ namespace Safehouse.UI
 
         /// <summary>A trader's portrait (<c>icon_cache/traders/&lt;trader_id&gt;.png</c>, made by tools/import_art.py --traders), or null.</summary>
         public Texture2D GetTrader(string traderId) => Cached(_loadedTraders, _traderFolder, traderId);
+
+        /// <summary>A character portrait from <c>icon_cache/avatars/&lt;id&gt;.png</c>, or null.</summary>
+        public Texture2D GetAvatar(string avatarId) => Cached(_loadedAvatars, _avatarFolder, avatarId);
+
+        /// <summary>Every portrait on disk, by id, sorted - what the "next portrait" button walks through.</summary>
+        public IReadOnlyList<string> AvatarIds
+        {
+            get
+            {
+                try
+                {
+                    if (!Directory.Exists(_avatarFolder))
+                    {
+                        return new string[0];
+                    }
+
+                    return Directory.GetFiles(_avatarFolder, "*.png")
+                        .Select(Path.GetFileNameWithoutExtension)
+                        .Where(id => !string.IsNullOrEmpty(id))
+                        .OrderBy(id => id, System.StringComparer.Ordinal)
+                        .ToList();
+                }
+                catch (System.Exception error) when (error is System.IO.IOException
+                                                     || error is System.UnauthorizedAccessException)
+                {
+                    return new string[0];
+                }
+            }
+        }
 
         private static Texture2D Cached(Dictionary<string, Texture2D> cache, string folder, string itemId)
         {

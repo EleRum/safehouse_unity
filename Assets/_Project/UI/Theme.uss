@@ -651,6 +651,56 @@
     -unity-font-style: normal;
     font-size: 13px;
 }
+.sheet-combo .unity-base-field__input {
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+}
+
+.sheet-inline {
+    width: auto;
+    margin: 0;
+}
+.sheet-inline .unity-base-field__input,
+.sheet-inline .unity-base-text-field__input {
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
+    height: 32px;
+}
+
+.menu-item {
+    height: 26px;
+    padding-left: 10px;
+    padding-right: 10px;
+    justify-content: center;
+    align-items: flex-start;
+    background-color: rgb(20, 23, 27);
+    border-width: 0;
+    color: rgb(230, 233, 236);
+    font-size: 13px;
+}
+.menu-item:hover {
+    background-color: rgb(36, 43, 51);
+    color: rgb(217, 164, 65);
+}
+
+.sheet-field .unity-base-popup-field__input {
+    width: 420px;
+    min-width: 420px;
+    max-width: 420px;
+    flex-grow: 0;
+    min-height: 32px;
+    background-color: rgb(20, 23, 27);
+    border-width: 1px;
+    border-color: rgb(42, 48, 56);
+    border-radius: 0;
+    color: rgb(230, 233, 236);
+    font-size: 13px;
+}
+.sheet-field .unity-base-popup-field__input:hover {
+    border-color: rgb(59, 68, 80);
+}
 .sheet-field .unity-base-field__input .unity-text-element {
     color: rgb(230, 233, 236);
 }

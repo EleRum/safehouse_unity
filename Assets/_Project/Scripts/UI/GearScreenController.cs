@@ -176,6 +176,11 @@ namespace Safehouse.UI
             _filterAll.clicked += () => SetStashFilter("ALL");
             _filterMeds.clicked += () => SetStashFilter("MEDS");
             _filterBarter.clicked += () => SetStashFilter("BARTER");
+
+            // The game opens on the character list, not on the stash: this screen is what opens the
+            // data folder, so it starts hidden and hands over once every screen has registered.
+            HideScreen();
+            _root.schedule.Execute(() => ScreenNavigator.Go("character")).StartingIn(0);
         }
 
         private void OnDisable()

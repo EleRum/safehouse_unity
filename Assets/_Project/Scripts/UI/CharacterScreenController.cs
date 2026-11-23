@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Safehouse.Core;
 using Safehouse.Data;
+using UnityEngine;
 using UnityEngine.UIElements;
 
 namespace Safehouse.UI
@@ -18,7 +19,7 @@ namespace Safehouse.UI
         private Label _error;
         private readonly Dictionary<string, int> _abilities =
             Gundog.Abilities.ToDictionary(stat => stat.StatId, stat => Gundog.AbilityDefault);
-        private readonly Dictionary<string, TextField> _identity = new Dictionary<string, TextField>();
+        private readonly Dictionary<string, string> _identity = new Dictionary<string, string>();
         private readonly List<TextField> _career = new List<TextField>();
         private readonly HashSet<string> _arts = new HashSet<string>();
         private TextField _name;
@@ -34,6 +35,7 @@ namespace Safehouse.UI
         private Label _rewardLabel;
         private Label _movementLabel;
         private Label _durabilityLabel;
+        private Label _rosterStatus;
 
         private void OnEnable()
         {
@@ -54,7 +56,9 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             ScreenNavigator.Register("character", Show, Hide);
-            Hide();
+
+            // The game opens here, on the list of characters, rather than on a stash.
+            Show();
         }
 
         private void OnDisable() => ScreenNavigator.Unregister("character");
@@ -62,39 +66,118 @@ namespace Safehouse.UI
         private void Show()
         {
             _root.style.display = DisplayStyle.Flex;
+            _creating = false;
             Build();
+
+            // The GEAR screen is what opens the data folder. If this screen is built before it got
+            // that far, the roster has nothing to list - so look again once it has.
+            if (GearScreenController.Current?.Session == null)
+            {
+                _root.schedule.Execute(() =>
+                {
+                    if (GearScreenController.Current?.Session != null)
+                    {
+                        Build();
+                    }
+                }).StartingIn(150);
+            }
         }
 
         private void Hide() => _root.style.display = DisplayStyle.None;
 
+        private bool _creating;
+        private int _newAvatarIndex = -1;
+
         private void Build()
         {
+            ClosePresets();
             _scroll.Clear();
             _error.text = "";
             _identity.Clear();
             _career.Clear();
+
+            _scroll.Add(_creating ? CreatePage() : RosterPage());
+        }
+
+        /// <summary>The saves, with the button that starts a new one above them.</summary>
+        private VisualElement RosterPage()
+        {
             var column = new VisualElement();
-            column.Add(Section("ROSTER"));
+            column.Add(Section("CHARACTERS"));
+
+            var newCharacter = new Button(() =>
+            {
+                _creating = true;
+                _newAvatarIndex = -1;
+                Build();
+            })
+            {
+                text = "NEW CHARACTER",
+            };
+            newCharacter.AddToClassList("btn");
+            newCharacter.AddToClassList("btn-primary");
+            newCharacter.style.width = 220;
+            newCharacter.style.marginBottom = 16;
+            column.Add(newCharacter);
+
             column.Add(Roster());
+            return column;
+        }
+
+        /// <summary>Creating a character is its own page, and it starts with the portrait.</summary>
+        private VisualElement CreatePage()
+        {
+            var column = new VisualElement();
+            column.Add(Section("NEW CHARACTER"));
+
+            var back = new Button(() =>
+            {
+                _creating = false;
+                Build();
+            })
+            {
+                text = "BACK TO CHARACTERS",
+            };
+            back.AddToClassList("btn");
+            back.AddToClassList("btn-outline");
+            back.style.width = 220;
+            back.style.marginBottom = 16;
+            column.Add(back);
+
+            column.Add(Section("PORTRAIT"));
+            column.Add(PortraitPicker());
+
             column.Add(Section("NAME"));
             _name = Field("NAME", wide: true);
             column.Add(_name);
 
             column.Add(Section("IDENTITY"));
             var identity = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
-            AddIdentity(identity, "nationality", "NATIONALITY");
-            AddIdentity(identity, "gender", "GENDER");
-            AddIdentity(identity, "age", "AGE");
-            AddIdentity(identity, "blood_type", "BLOOD TYPE");
-            AddIdentity(identity, "height", "HEIGHT");
-            AddIdentity(identity, "weight", "WEIGHT");
-            AddIdentity(identity, "hair_color", "HAIR");
-            AddIdentity(identity, "eye_color", "EYES");
-            AddIdentity(identity, "skin_color", "SKIN");
-            AddIdentity(identity, "rank", "RANK");
-            AddIdentity(identity, "language", "LANGUAGE");
-            AddIdentity(identity, "occupation", "OCCUPATION");
-            AddIdentity(identity, "era", "ERA");
+            AddIdentity(identity, "nationality", "NATIONALITY", new[]
+            {
+                "China", "Hong Kong", "Taiwan", "Russia", "Ukraine", "Poland", "Germany",
+                "France", "United Kingdom", "United States", "Japan", "Korea", "Australia",
+            });
+            AddIdentity(identity, "gender", "GENDER", new[] { "Male", "Female", "Other" });
+            AddNumber(identity, "age", "AGE", 18, 65, 1);
+            AddIdentity(identity, "blood_type", "BLOOD TYPE",
+                new[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" });
+            AddNumber(identity, "height", "HEIGHT", 150, 200, 5);
+            AddNumber(identity, "weight", "WEIGHT", 45, 120, 5);
+            AddIdentity(identity, "hair_color", "HAIR",
+                new[] { "Black", "Dark brown", "Brown", "Auburn", "Blond", "Red", "Grey", "White", "Shaved" });
+            AddIdentity(identity, "eye_color", "EYES",
+                new[] { "Brown", "Hazel", "Green", "Grey", "Blue", "Amber" });
+            AddIdentity(identity, "skin_color", "SKIN",
+                new[] { "Fair", "Light", "Olive", "Tan", "Brown", "Dark" });
+            AddIdentity(identity, "rank", "RANK",
+                new[] { "Private", "Corporal", "Sergeant", "Lieutenant", "Captain", "Major" });
+            AddIdentity(identity, "language", "LANGUAGE",
+                new[] { "English", "Russian", "Mandarin", "Cantonese", "Polish", "Ukrainian", "Korean", "Japanese" });
+            AddIdentity(identity, "occupation", "OCCUPATION",
+                new[] { "Rifleman", "Scout", "Medic", "Engineer", "Machine gunner", "Sniper", "Driver", "Signaller" });
+            AddIdentity(identity, "era", "ERA", new[] { "1990s", "2000s", "2010s", "Present" });
+
             column.Add(identity);
 
             column.Add(Section("ABILITY"));
@@ -145,8 +228,8 @@ namespace Safehouse.UI
             create.style.marginTop = 12;
             create.style.width = 160;
             column.Add(create);
-            _scroll.Add(column);
             RefreshClasses();
+            return column;
         }
 
         private void Create()
@@ -165,14 +248,21 @@ namespace Safehouse.UI
                 {
                     if (bio.ContainsKey(pair.Key))
                     {
-                        bio[pair.Key] = pair.Value.value.Trim();
+                        bio[pair.Key] = pair.Value.Trim();
                     }
                 }
 
                 var sheet = new GundogSheet(_abilities, _main, _sub, _arts.OrderBy(id => id, StringComparer.Ordinal),
                     _career.Select(field => field.value.Trim()).ToList(), _reward, _movement, _durability,
                     Text("rank"), Text("language"), Text("occupation"), Text("era"));
-                session.CreateCharacter(_name.value, bio, sheet);
+                var created = session.CreateCharacter(_name.value, bio, sheet);
+                if (_newAvatarIndex >= 0)
+                {
+                    PlayerPrefs.SetInt("Safehouse.Avatar." + created.ProfileId, _newAvatarIndex);
+                    PlayerPrefs.Save();
+                }
+
+                _creating = false;
                 _error.text = "";
                 ScreenNavigator.Go("gear");
             }
@@ -224,46 +314,73 @@ namespace Safehouse.UI
                     {
                         flexDirection = FlexDirection.Row,
                         alignItems = Align.Center,
-                        marginBottom = 6,
+                        paddingLeft = 14,
+                        paddingRight = 14,
+                        paddingTop = 12,
+                        paddingBottom = 12,
+                        marginBottom = 12,
                     },
                 };
+                row.AddToClassList("card");
+                row.style.flexDirection = FlexDirection.Row; // .card sets a column; this row is one line
+                if (profile.ProfileId == session.Profile.ProfileId)
+                {
+                    row.style.borderTopColor = row.style.borderBottomColor =
+                        row.style.borderLeftColor = row.style.borderRightColor =
+                        new UnityEngine.Color(217f / 255f, 164f / 255f, 65f / 255f);
+                }
 
                 var open = profile.ProfileId == session.Profile.ProfileId;
-                var label = new Label(profile.DisplayName
-                    + "     " + profile.Status.Replace('_', ' ').ToUpperInvariant()
-                    + "     " + profile.Money + " R")
+                row.Add(Avatar(profile.ProfileId));
+
+                var info = new VisualElement
                 {
-                    style = { flexGrow = 1 },
+                    style = { flexDirection = FlexDirection.Column, flexGrow = 1 },
                 };
-                label.AddToClassList(open ? "text-accent" : "text-muted");
-                row.Add(label);
+
+                var nameLabel = new Label(profile.DisplayName);
+                nameLabel.style.fontSize = 17;
+                nameLabel.AddToClassList(open ? "text-accent" : "");
+                info.Add(nameLabel);
+
+                var meta = new Label(profile.Status.Replace('_', ' ').ToUpperInvariant()
+                    + "     " + profile.Money + " R");
+                meta.style.fontSize = 12;
+                meta.style.marginTop = 2;
+                meta.AddToClassList("text-muted");
+                info.Add(meta);
+
+                row.Add(info);
 
                 var id = profile.ProfileId;
+                var name = profile.DisplayName;
+
+                // Neither button is ever dead: pressing one always does something or says why not.
                 var openButton = new Button(() =>
                 {
-                    var gear = GearScreenController.Current;
-                    if (gear == null || gear.OpenCharacter(id) == null)
+                    if (open)
                     {
-                        ScreenNavigator.Go("gear");
+                        Say("That character is already open.");
+                        return;
                     }
+
+                    Open(id);
                 })
                 {
-                    text = "OPEN",
-                    style = { marginRight = 6, height = 26, fontSize = 10, paddingLeft = 12, paddingRight = 12 },
+                    text = open ? "CURRENT" : "OPEN",
+                    style = { marginRight = 8, height = 30, fontSize = 11, paddingLeft = 14, paddingRight = 14 },
                 };
                 openButton.AddToClassList("btn");
-                openButton.AddToClassList("btn-outline");
-                openButton.SetEnabled(!open);
+                openButton.AddToClassList(open ? "btn-outline" : "btn-primary");
                 row.Add(openButton);
 
                 var deleteButton = new Button { text = "DELETE" };
                 deleteButton.AddToClassList("btn");
                 deleteButton.AddToClassList("btn-danger");
-                deleteButton.style.height = 26;
-                deleteButton.style.fontSize = 10;
-                deleteButton.style.paddingLeft = 12;
-                deleteButton.style.paddingRight = 12;
-                deleteButton.SetEnabled(!open);
+                deleteButton.style.height = 30;
+                deleteButton.style.fontSize = 11;
+                deleteButton.style.paddingLeft = 14;
+                deleteButton.style.paddingRight = 14;
                 var confirming = false;
                 deleteButton.clicked += () =>
                 {
@@ -271,27 +388,27 @@ namespace Safehouse.UI
                     {
                         confirming = true;
                         deleteButton.text = "SURE?";
+                        Say(open
+                            ? "This is the character you are playing. Deleting it moves you to another one."
+                            : "Press DELETE again to remove " + name + ".");
                         return;
                     }
 
-                    try
-                    {
-                        session.Repository.Delete(id);
-                        _error.text = "";
-                    }
-                    catch (Exception error)
-                    {
-                        _error.text = error.Message;
-                    }
-
-                    Build();
+                    Delete(id, name, open, profiles);
                 };
                 row.Add(deleteButton);
                 list.Add(row);
             }
 
-            var hint = new Label("The form below adds a new character. A character that is open cannot be "
-                + "deleted - open another one first.");
+            _rosterStatus = new Label("");
+            _rosterStatus.AddToClassList("text-accent");
+            _rosterStatus.style.whiteSpace = WhiteSpace.Normal;
+            _rosterStatus.style.maxWidth = 640;
+            _rosterStatus.style.marginBottom = 6;
+            list.Insert(0, _rosterStatus);
+
+            var hint = new Label("OPEN switches to that character and goes to the stash. NEW CHARACTER "
+                + "below opens the sheet for a new one.");
             hint.AddToClassList("text-muted");
             hint.style.whiteSpace = WhiteSpace.Normal;
             hint.style.maxWidth = 560;
@@ -300,7 +417,212 @@ namespace Safehouse.UI
             return list;
         }
 
-        private string Text(string key) => _identity.ContainsKey(key) ? _identity[key].value.Trim() : "";
+        /// <summary>The portraits on disk, one clickable plate each; the chosen one is outlined.</summary>
+        private VisualElement PortraitPicker()
+        {
+            var row = new VisualElement
+            {
+                style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap, marginBottom = 14 },
+            };
+
+            var iconLibrary = new IconLibrary();
+            var ids = iconLibrary.AvatarIds;
+            if (ids.Count == 0)
+            {
+                row.Add(new Label("No portraits in icon_cache/avatars, so this one starts without a face."));
+                return row;
+            }
+
+            if (_newAvatarIndex < 0 || _newAvatarIndex >= ids.Count)
+            {
+                _newAvatarIndex = 0;
+            }
+
+            for (var i = 0; i < ids.Count; i++)
+            {
+                var index = i;
+                var plate = new Button(() =>
+                {
+                    _newAvatarIndex = index;
+                    Build();
+                });
+                plate.AddToClassList("card");
+                plate.style.width = 56;
+                plate.style.height = 56;
+                plate.style.marginRight = 8;
+                plate.style.paddingLeft = 0;
+                plate.style.paddingRight = 0;
+                plate.style.paddingTop = 0;
+                plate.style.paddingBottom = 0;
+
+                var texture = iconLibrary.GetAvatar(ids[i]);
+                if (texture != null)
+                {
+                    var image = new Image
+                    {
+                        image = texture,
+                        scaleMode = ScaleMode.ScaleAndCrop,
+                        pickingMode = PickingMode.Ignore,
+                    };
+                    image.style.position = Position.Absolute;
+                    image.style.left = 1;
+                    image.style.top = 1;
+                    image.style.right = 1;
+                    image.style.bottom = 1;
+                    plate.Add(image);
+                }
+
+                if (i == _newAvatarIndex)
+                {
+                    plate.AddToClassList("cell-selected");
+                }
+
+                row.Add(plate);
+            }
+
+            return row;
+        }
+
+        /// <summary>
+        /// The character's portrait. Clicking it walks to the next portrait on disk; the choice is kept
+        /// in PlayerPrefs, so it costs no save-schema change. Without any portraits on disk the cell is
+        /// simply an empty plate.
+        /// </summary>
+        private VisualElement Avatar(string profileId)
+        {
+            var iconLibrary = new IconLibrary();
+            var ids = iconLibrary.AvatarIds;
+            var plate = new VisualElement();
+            plate.style.width = 72;
+            plate.style.height = 72;
+            plate.style.marginRight = 10;
+            plate.style.flexShrink = 0;
+            plate.AddToClassList("card");
+
+            if (ids.Count == 0)
+            {
+                return plate;
+            }
+
+            var key = "Safehouse.Avatar." + profileId;
+            var index = PlayerPrefs.GetInt(key, -1);
+            if (index < 0)
+            {
+                index = Mathf.Abs(profileId.GetHashCode()) % ids.Count;
+            }
+
+            index = ((index % ids.Count) + ids.Count) % ids.Count;
+            var texture = iconLibrary.GetAvatar(ids[index]);
+            if (texture != null)
+            {
+                var image = new Image
+                {
+                    image = texture,
+                    scaleMode = ScaleMode.ScaleAndCrop,
+                    pickingMode = PickingMode.Ignore,
+                };
+                image.style.position = Position.Absolute;
+                image.style.left = 1;
+                image.style.top = 1;
+                image.style.right = 1;
+                image.style.bottom = 1;
+                plate.Add(image);
+            }
+
+            var next = index;
+            var button = new Button(() =>
+            {
+                PlayerPrefs.SetInt(key, (next + 1) % ids.Count);
+                PlayerPrefs.Save();
+                Build();
+            });
+            button.style.position = Position.Absolute;
+            button.style.left = 0;
+            button.style.top = 0;
+            button.style.right = 0;
+            button.style.bottom = 0;
+            button.style.backgroundColor = new UnityEngine.Color(0, 0, 0, 0);
+            button.style.borderTopWidth = button.style.borderBottomWidth =
+                button.style.borderLeftWidth = button.style.borderRightWidth = 0;
+            button.tooltip = "Click to change the portrait";
+            plate.Add(button);
+            return plate;
+        }
+
+        private void Say(string text)
+        {
+            if (_rosterStatus != null)
+            {
+                _rosterStatus.text = text;
+            }
+        }
+
+        /// <summary>Switches to a character and goes to the stash, or says why it could not.</summary>
+        private void Open(string profileId)
+        {
+            var gear = GearScreenController.Current;
+            if (gear == null)
+            {
+                Say("The stash screen is not ready yet.");
+                return;
+            }
+
+            var error = gear.OpenCharacter(profileId);
+            if (error != null)
+            {
+                Say(error);
+                return;
+            }
+
+            ScreenNavigator.Go("gear");
+        }
+
+        /// <summary>
+        /// Removes a character. Deleting the open one first switches to another, because the session
+        /// would otherwise keep writing the character that was just deleted back to disk.
+        /// </summary>
+        private void Delete(string profileId, string name, bool isOpen, IReadOnlyList<Profile> profiles)
+        {
+            var gear = GearScreenController.Current;
+            var session = gear?.Session;
+            if (session == null || !session.Saves)
+            {
+                Say("No data folder is open.");
+                return;
+            }
+
+            if (isOpen)
+            {
+                var next = profiles.FirstOrDefault(candidate => candidate.ProfileId != profileId);
+                if (next == null)
+                {
+                    Say("That is the only character in this folder. Create another one first.");
+                    return;
+                }
+
+                var switchError = gear.OpenCharacter(next.ProfileId);
+                if (switchError != null)
+                {
+                    Say(switchError);
+                    return;
+                }
+            }
+
+            try
+            {
+                session.Repository.Delete(profileId);
+            }
+            catch (Exception error)
+            {
+                Say(error.Message);
+                return;
+            }
+
+            Build();
+            Say("Deleted " + name + ".");
+        }
+
+        private string Text(string key) => _identity.ContainsKey(key) ? _identity[key].Trim() : "";
 
         private void RefreshClasses()
         {
@@ -455,11 +777,166 @@ namespace Safehouse.UI
             return button;
         }
 
-        private void AddIdentity(VisualElement row, string key, string label)
+        /// <summary>Caption plus control, in a fixed-width block, so the identity grid lines up.</summary>
+        private static VisualElement Block(string label)
         {
-            var field = Field(label);
-            _identity[key] = field;
-            row.Add(field);
+            var block = new VisualElement
+            {
+                style =
+                {
+                    flexDirection = FlexDirection.Row,
+                    alignItems = Align.Center,
+                    width = 316,
+                    marginRight = 10,
+                    marginBottom = 10,
+                },
+            };
+
+            var caption = new Label(label);
+            caption.AddToClassList("text-label");
+            caption.style.width = 96;
+            caption.style.minWidth = 96;
+            caption.style.fontSize = 12;
+            caption.style.marginRight = 8;
+            caption.style.unityTextAlign = TextAnchor.MiddleRight;
+            block.Add(caption);
+            return block;
+        }
+
+        /// <summary>
+        /// One identity field: a text box you can type anything into, plus a ▾ that offers the presets.
+        /// The menu is drawn by this screen rather than by Unity's DropdownField, whose popup is attached
+        /// outside the document's tree where this document's stylesheet cannot reach it.
+        /// </summary>
+        private void AddIdentity(VisualElement row, string key, string label, IReadOnlyList<string> options)
+        {
+            _identity[key] = options[0];
+            var block = Block(label);
+
+            var field = new TextField { maxLength = Gundog.MaxLineLength };
+            field.AddToClassList("sheet-field");
+            field.AddToClassList("sheet-inline");
+            field.value = options[0];
+            field.RegisterValueChangedCallback(changed => _identity[key] = changed.newValue ?? "");
+            block.Add(field);
+
+            var presets = new Button(() => OpenPresets(field, options, value =>
+            {
+                field.value = value;
+                _identity[key] = value;
+            }))
+            {
+                text = "\u25be",
+            };
+            presets.AddToClassList("btn");
+            presets.AddToClassList("btn-outline");
+            presets.style.width = 28;
+            presets.style.height = 32;
+            presets.style.paddingLeft = 0;
+            presets.style.paddingRight = 0;
+            presets.style.marginLeft = 4;
+            presets.tooltip = "Presets";
+            block.Add(presets);
+
+            row.Add(block);
+        }
+
+        /// <summary>A number the player nudges rather than a chip for every value.</summary>
+        private void AddNumber(VisualElement row, string key, string label, int from, int to, int step)
+        {
+            _identity[key] = from.ToString();
+            var block = Block(label);
+
+            var value = new Label(_identity[key]);
+            value.AddToClassList("sheet-value");
+            value.AddToClassList("text-mono");
+            value.style.width = 44;
+            value.style.unityTextAlign = TextAnchor.MiddleCenter;
+
+            block.Add(Step("-", () =>
+            {
+                var next = Math.Max(from, int.Parse(_identity[key]) - step);
+                _identity[key] = next.ToString();
+                value.text = _identity[key];
+            }));
+            block.Add(value);
+            block.Add(Step("+", () =>
+            {
+                var next = Math.Min(to, int.Parse(_identity[key]) + step);
+                _identity[key] = next.ToString();
+                value.text = _identity[key];
+            }));
+
+            row.Add(block);
+        }
+
+        private VisualElement _presetCatcher;
+
+        /// <summary>The preset list, drawn under the field. Any click outside it closes it.</summary>
+        private void OpenPresets(VisualElement anchor, IReadOnlyList<string> options, Action<string> choose)
+        {
+            ClosePresets();
+
+            _presetCatcher = new VisualElement();
+            _presetCatcher.style.position = Position.Absolute;
+            _presetCatcher.style.left = 0;
+            _presetCatcher.style.top = 0;
+            _presetCatcher.style.right = 0;
+            _presetCatcher.style.bottom = 0;
+            _presetCatcher.RegisterCallback<PointerDownEvent>(_ => ClosePresets());
+            _root.Add(_presetCatcher);
+
+            var menu = new VisualElement { pickingMode = PickingMode.Position };
+            menu.AddToClassList("card");
+            menu.style.position = Position.Absolute;
+            var corner = _root.WorldToLocal(anchor.worldBound.position);
+            menu.style.left = corner.x;
+            menu.style.top = corner.y + anchor.worldBound.height + 2;
+            menu.style.minWidth = Math.Max(180, anchor.worldBound.width);
+            menu.style.maxWidth = 420;
+
+            var scroll = new ScrollView(ScrollViewMode.Vertical);
+            scroll.style.maxHeight = 300;
+            foreach (var option in options)
+            {
+                var value = option;
+                var item = new Button(() =>
+                {
+                    choose(value);
+                    ClosePresets();
+                })
+                {
+                    text = value,
+                };
+                item.AddToClassList("menu-item");
+                item.style.unityTextAlign = TextAnchor.MiddleLeft;
+                scroll.Add(item);
+            }
+
+            menu.Add(scroll);
+            _presetCatcher.Add(menu);
+        }
+
+        private void ClosePresets()
+        {
+            if (_presetCatcher == null)
+            {
+                return;
+            }
+
+            _presetCatcher.RemoveFromHierarchy();
+            _presetCatcher = null;
+        }
+
+        private static string[] Range(int from, int to, int step)
+        {
+            var values = new List<string>();
+            for (var value = from; value <= to; value += step)
+            {
+                values.Add(value.ToString());
+            }
+
+            return values.ToArray();
         }
 
         private static TextField Field(string label, bool wide = false)
