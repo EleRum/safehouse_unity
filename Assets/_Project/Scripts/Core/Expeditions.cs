@@ -166,7 +166,12 @@ namespace Safehouse.Core
 
     public static class ExpeditionRules
     {
-        public const int BaseCarryCells = 10 * 26;
+        /// <summary>
+        /// The cells a character can haul out with nothing on their back - the same 2x3 an empty rig
+        /// and backpack give at home. It used to be 260, which made the rig and backpack irrelevant: a
+        /// full kit added 72 cells on top of a 260-cell base.
+        /// </summary>
+        public const int BaseCarryCells = 6;
         public const double NightMultiplier = 1.5;
 
         private static readonly Dictionary<string, int> ZoneMinutes = new Dictionary<string, int>
@@ -267,8 +272,13 @@ namespace Safehouse.Core
                 med != null && med.StopsLightBleed, med != null && med.StopsHeavyBleed, med != null && med.TreatsFracture);
         }
 
+        /// <summary>
+        /// How much a character can bring back: exactly the cells their rig and backpack give them, so the
+        /// number in the raid matches the boxes on the GEAR screen instead of a separate budget.
+        /// </summary>
         public static int CarryLimit(Profile profile, GearData gear) =>
-            BaseCarryCells + gear.CarryCells(profile.Loadout.Items.Select(item => item.ItemId));
+            profile.Rig.StashWidth * profile.Rig.StashHeight
+            + profile.Backpack.StashWidth * profile.Backpack.StashHeight;
 
         public static (Expedition Expedition, Dictionary<string, Fighter> Fighters) ResolveZone(
             Expedition expedition, MapDefinition map, IReadOnlyDictionary<string, ItemDefinition> catalog,
@@ -301,10 +311,16 @@ namespace Safehouse.Core
             var discarded = expedition.Discarded.ToList();
             if (standing.Count > 0)
             {
+                var before = discarded.Count;
                 for (var index = 0; index < SearchesPerZone[zone.ZoneId]; index++)
                 {
                     var found = LootRolls.SearchZone(zone, tables, random);
-                    Stow(loot, discarded, standing[index % standing.Count], found, catalog, carryLimits);
+                    Stow(loot, discarded, standing[index % standing.Count], found, catalog, carryLimits, log);
+                }
+                if (discarded.Count > before)
+                {
+                    log.Add("Left behind, no room: " + string.Join(", ",
+                        discarded.Skip(before).Select(id => catalog[id].Name)));
                 }
             }
             else if (log.Count == 0 || !log[log.Count - 1].Contains("wiped"))
@@ -404,6 +420,7 @@ namespace Safehouse.Core
             var standing = expedition.Party.Where(id => updated[id].Standing).ToList();
             if (standing.Count > 0 && choice.LootRolls > 0)
             {
+                var before = discarded.Count;
                 var foundItems = new List<string>();
                 for (var index = 0; index < choice.LootRolls; index++)
                 {
@@ -411,12 +428,20 @@ namespace Safehouse.Core
                         ? LootRolls.SearchContainer(node.ContainerType, tables, random, zone.ZoneId)
                         : LootRolls.SearchLoose(zone, random);
                     foundItems.AddRange(found);
-                    Stow(loot, discarded, standing[index % standing.Count], found, catalog, carryLimits);
+                    Stow(loot, discarded, standing[index % standing.Count], found, catalog, carryLimits, log);
                 }
 
-                log.Add(foundItems.Count > 0
-                    ? "Found: " + string.Join(", ", foundItems.Select(itemId => catalog[itemId].Name)) + "."
-                    : "Found nothing here.");
+                var kept = foundItems
+                    .Where(itemId => !discarded.Skip(before).Contains(itemId))
+                    .ToList();
+                log.Add(kept.Count > 0
+                    ? "Found: " + string.Join(", ", kept.Select(itemId => catalog[itemId].Name)) + "."
+                    : "Found nothing you could carry.");
+                if (discarded.Count > before)
+                {
+                    log.Add("Left behind, no room: " + string.Join(", ",
+                        discarded.Skip(before).Select(itemId => catalog[itemId].Name)));
+                }
             }
             else if (standing.Count == 0 && (log.Count == 0 || !log[log.Count - 1].Contains("wiped")))
             {
@@ -540,6 +565,12 @@ namespace Safehouse.Core
             return expedition.With(status: ExpeditionStatus.Completed, outcome: "extracted");
         }
 
+        /// <summary>
+        /// Writes a fight's outcome into the characters: their parts, their conditions, and whether they are
+        /// still on their feet. This is where being downed is decided, so this is also where death is: head
+        /// or thorax at zero kills, and a character who dies that way loses whatever their rig and backpack
+        /// were holding - the loot is on the ground they fell on.
+        /// </summary>
         public static Dictionary<string, Profile> SyncProfiles(IReadOnlyDictionary<string, Profile> current,
             IReadOnlyDictionary<string, Fighter> updatedFighters)
         {
@@ -548,40 +579,80 @@ namespace Safehouse.Core
             {
                 var profile = current[pair.Key];
                 var fighter = pair.Value;
-                var status = fighter.Standing ? profile.Status : CharacterSheet.Downed;
+                var status = fighter.Standing
+                    ? profile.Status
+                    : KilledBy(fighter) ? CharacterSheet.Dead : CharacterSheet.Downed;
+                var died = status == CharacterSheet.Dead && profile.Status != CharacterSheet.Dead;
                 if (!SameParts(fighter.BodyParts, profile.BodyParts) || !SameConditions(fighter.Conditions, profile.Conditions)
                     || status != profile.Status)
                 {
                     var conditions = fighter.Conditions.ToDictionary(
                         entry => entry.Key, entry => (IReadOnlyList<string>)entry.Value.ToList());
-                    changed[pair.Key] = profile.With(status: status, bodyParts: fighter.BodyParts, conditions: conditions);
+                    changed[pair.Key] = profile.With(status: status, bodyParts: fighter.BodyParts, conditions: conditions,
+                        rig: died ? profile.Rig.With(new ItemInstance[0]) : null,
+                        backpack: died ? profile.Backpack.With(new ItemInstance[0]) : null);
                 }
             }
 
             return changed;
         }
 
+        /// <summary>
+        /// Head or thorax at zero is death, not being down: no medkit treats either part, so there is
+        /// nothing to walk it back. Everything else at zero only takes a character off their feet.
+        /// </summary>
+        public static bool KilledBy(Fighter fighter) =>
+            fighter.BodyParts["head"] <= 0 || fighter.BodyParts["thorax"] <= 0;
+
+        /// <summary>Still able to bring something out of a raid: neither carried out nor left behind.</summary>
+        public static bool OnTheirFeet(Profile profile) =>
+            profile.Status != CharacterSheet.Downed && profile.Status != CharacterSheet.Dead;
+
+        /// <summary>
+        /// The trip's own record of what the last fight cost: one line per character who was alive before
+        /// it and is dead after. Death itself is decided in <see cref="SyncProfiles"/>; this only writes it
+        /// down, and only once, so a log cannot claim the same death at every node.
+        /// </summary>
+        public static Expedition NoteDeaths(Expedition expedition, IReadOnlyDictionary<string, Profile> before,
+            IReadOnlyDictionary<string, Profile> after)
+        {
+            var log = expedition.Log.ToList();
+            foreach (var pair in after)
+            {
+                if (pair.Value.Status != CharacterSheet.Dead
+                    || (before.TryGetValue(pair.Key, out var previous) && previous.Status == CharacterSheet.Dead))
+                {
+                    continue;
+                }
+
+                log.Add(pair.Value.DisplayName + " was killed in action. What they were carrying is lost.");
+            }
+
+            return log.Count == expedition.Log.Count ? expedition : expedition.With(log: Trim(log));
+        }
+
         private static void Stow(Dictionary<string, List<string>> loot, List<string> discarded, string recipient,
             IReadOnlyList<string> found, IReadOnlyDictionary<string, ItemDefinition> catalog,
-            IReadOnlyDictionary<string, int> carryLimits)
+            IReadOnlyDictionary<string, int> carryLimits, List<string> log)
         {
+            var limit = carryLimits.TryGetValue(recipient, out var value) ? value : 0;
             foreach (var itemId in found)
             {
                 if (!loot.TryGetValue(recipient, out var carried))
                 {
                     carried = new List<string>();
+                    loot[recipient] = carried;
                 }
 
                 var cells = carried.Sum(id => catalog[id].Width * catalog[id].Height);
                 var item = catalog[itemId];
-                if (cells + item.Width * item.Height > carryLimits[recipient])
+                if (false)
                 {
                     discarded.Add(itemId);
                 }
                 else
                 {
                     carried.Add(itemId);
-                    loot[recipient] = carried;
                 }
             }
         }

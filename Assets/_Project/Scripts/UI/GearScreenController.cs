@@ -32,6 +32,10 @@ namespace Safehouse.UI
         private const float AutoScrollEdge = 48f;      // pointer this close to the viewport edge starts scrolling
         private const float AutoScrollSpeed = 300f;    // pixels per second while held at the edge
 
+        private const string BinHint = "Drag an item from any grid onto the bin, then click the bin to destroy it.";
+        private static readonly Color BinIdleColor = new Color(0.471f, 0.518f, 0.561f);   // rgb(120, 132, 143)
+        private static readonly Color BinArmedColor = new Color(0.851f, 0.643f, 0.255f);  // rgb(217, 164, 65)
+
         /// <summary>One on-screen grid: the element cells live in, and the rules-side grid behind it.</summary>
         private sealed class GridView
         {
@@ -83,6 +87,13 @@ namespace Safehouse.UI
         private Label _labelStashCells;
         private Label _labelStashValue;
         private Label _labelCarried;
+        private VisualElement _trashBin;
+        private Label _trashIcon;
+        private Label _trashLabel;
+        private string _trashInstanceId;
+        private VisualElement _deathBanner;
+        private Label _deathBannerText;
+        private Button _equipButton;
         private VisualElement _swatchSelected;
         private Label _labelSelectedIcon;
         private Label _labelSelectedName;
@@ -154,6 +165,18 @@ namespace Safehouse.UI
             _root.Q<Button>("character-prev").clicked += () => CycleCharacter(-1);
             _root.Q<Button>("character-next").clicked += () => CycleCharacter(1);
 
+            _trashBin = _root.Q<VisualElement>("stash-bin");
+            _trashIcon = _root.Q<Label>("stash-bin-icon");
+            _trashLabel = _root.Q<Label>("stash-bin-label");
+            if (_trashBin != null)
+            {
+                _trashBin.tooltip = BinHint;
+                _trashBin.RegisterCallback<PointerDownEvent>(_ => OnBinClicked());
+            }
+
+            _deathBanner = _root.Q<VisualElement>("death-banner");
+            _deathBannerText = _root.Q<Label>("death-banner-text");
+
             CreateToast();
             OpenSession();
             ApplyProfile();
@@ -178,7 +201,8 @@ namespace Safehouse.UI
             _useButton.clicked += UseSelectedMed;
             _openButton = _root.Q<Button>("btn-open");
             _openButton.clicked += OpenSelectedCase;
-            _root.Q<Button>("btn-equip").clicked += EquipSelected;
+            _equipButton = _root.Q<Button>("btn-equip");
+            _equipButton.clicked += EquipSelected;
             _root.Q<Button>("btn-sort").clicked += SortStash;
             _root.Q<Button>("btn-save-preset").clicked += SavePreset;
             _filterAll = _root.Q<Button>("filter-all");
@@ -456,6 +480,7 @@ namespace Safehouse.UI
             }
 
             _selectedInstanceId = null;
+            CancelTrash(); // another character's item must never be left waiting in the bin
             RefreshAll();
             ClearSelection();
 
@@ -471,6 +496,8 @@ namespace Safehouse.UI
             ApplyCarried(profile);
 
             ApplyVitals(profile);
+
+            ApplyDeathState(profile);
 
             _labelCharacter.text = profile.DisplayName.ToUpperInvariant()
                 + (profile.Status == CharacterSheet.Active ? "" : " · " + profile.Status.Replace('_', ' ').ToUpperInvariant());
@@ -495,23 +522,60 @@ namespace Safehouse.UI
 
         /// <summary>
         /// USE and OPEN are only on screen while the selected item can use them, so the row is not
-        /// cluttered with buttons that would only answer "that is not a medkit".
+        /// cluttered with buttons that would only answer "that is not a medkit". Neither shows for a dead
+        /// character: there is nothing left to use on them.
         /// </summary>
         private void RefreshActions()
         {
+            var dead = _session != null && _session.Profile.Status == CharacterSheet.Dead;
             var itemId = _selectedInstanceId == null ? null : ItemIdOf(_selectedInstanceId);
             var isMed = itemId != null && HealingRules.IsMed(_gear, itemId);
             var isCase = itemId != null && CaseRules.Find(_cases, itemId) != null;
 
             if (_useButton != null)
             {
-                _useButton.style.display = isMed ? DisplayStyle.Flex : DisplayStyle.None;
+                _useButton.style.display = isMed && !dead ? DisplayStyle.Flex : DisplayStyle.None;
             }
 
             if (_openButton != null)
             {
-                _openButton.style.display = isCase ? DisplayStyle.Flex : DisplayStyle.None;
+                _openButton.style.display = isCase && !dead ? DisplayStyle.Flex : DisplayStyle.None;
             }
+        }
+
+        /// <summary>
+        /// Dead is dead. The screen still shows what the character had - the stash is worth looking at,
+        /// and the roster still lists them - but nothing here can change them again: no medkit brings a
+        /// head or thorax back, so USE, OPEN, EQUIP and the bin are hidden, and a strip at the top says
+        /// why. DELETE on the character screen is the only way out.
+        /// </summary>
+        private void ApplyDeathState(Profile profile)
+        {
+            var dead = profile.Status == CharacterSheet.Dead;
+
+            if (_deathBanner != null)
+            {
+                _deathBanner.style.display = dead ? DisplayStyle.Flex : DisplayStyle.None;
+            }
+
+            if (dead && _deathBannerText != null)
+            {
+                _deathBannerText.text = profile.DisplayName + " is dead. A head or thorax at zero is not a "
+                    + "knockdown and nothing treats it, so this screen cannot change them: no healing, no gear, "
+                    + "no bin, and no sending out. DELETE on the character screen removes them for good.";
+            }
+
+            if (_trashBin != null)
+            {
+                _trashBin.style.display = dead ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            if (_equipButton != null)
+            {
+                _equipButton.style.display = dead ? DisplayStyle.None : DisplayStyle.Flex;
+            }
+
+            RefreshActions();
         }
 
         /// <summary>The open character's name.</summary>
@@ -1163,6 +1227,7 @@ namespace Safehouse.UI
             public float MarginTop;
             public GridView TargetView;    // the grid under the pointer, if any
             public SlotView TargetSlot;    // the slot card under the pointer, if any
+            public bool OverTrash;         // the bin is under the pointer
             public int TargetX;
             public int TargetY;
         }
@@ -1189,6 +1254,9 @@ namespace Safehouse.UI
 
         private void OnPointerDown(VisualElement element, Func<string> instanceIdOf, PointerDownEvent evt)
         {
+            // Touching anything else is the "no, keep it" answer to a bin that is waiting.
+            CancelTrash();
+
             var instanceId = instanceIdOf();
             if (evt.button != 0 || instanceId == null)
             {
@@ -1285,6 +1353,23 @@ namespace Safehouse.UI
             _proxy.style.height = height * Pitch - 2;
 
             ClearSlotHighlights();
+
+            // The bin is neither a slot nor a grid: it only needs to know whether the pointer is over
+            // it, and the copy can be shown with no landing preview under it.
+            drag.OverTrash = _trashBin != null && _trashBin.worldBound.Contains(drag.Pointer);
+            if (_trashBin != null)
+            {
+                _trashBin.EnableInClassList("trash-bin-over", drag.OverTrash && TrashError(drag.InstanceId) == null);
+            }
+
+            if (drag.OverTrash)
+            {
+                drag.TargetSlot = null;
+                drag.TargetView = null;
+                _ghost.RemoveFromHierarchy();
+                return;
+            }
+
             drag.TargetSlot = _slots.FirstOrDefault(view => view.Card.worldBound.Contains(drag.Pointer));
             if (drag.TargetSlot != null)
             {
@@ -1401,6 +1486,20 @@ namespace Safehouse.UI
 
             EndDrag(element);
 
+            if (drag.OverTrash)
+            {
+                // Into the bin: it holds the item until the click that confirms, so a drop that lands
+                // here by accident costs nothing but a message.
+                var armError = ArmTrash(drag.InstanceId);
+                if (armError != null)
+                {
+                    ShowMessage(armError);
+                    Reject(element);
+                }
+
+                return;
+            }
+
             string error;
             if (drag.TargetSlot != null)
             {
@@ -1443,6 +1542,7 @@ namespace Safehouse.UI
             _ghost?.RemoveFromHierarchy();
             _ghost = null;
             ClearSlotHighlights();
+            _trashBin?.RemoveFromClassList("trash-bin-over");
             element.RemoveFromClassList("cell-dragging");
             _autoScrollView = null;
             _autoScrollPixelsPerSecond = 0f;
@@ -1456,6 +1556,13 @@ namespace Safehouse.UI
 
         private void OnKeyDown(VisualElement element, Func<string> instanceIdOf, KeyDownEvent evt)
         {
+            if (evt.keyCode == KeyCode.Escape && _trashInstanceId != null)
+            {
+                CancelTrash();
+                evt.StopPropagation();
+                return;
+            }
+
             var instanceId = instanceIdOf();
             if (instanceId == null)
             {
@@ -1552,6 +1659,138 @@ namespace Safehouse.UI
             _labelSelectedValue.text = Spaced(item.BaseValue);
             _labelSelectedWeight.text = $"{item.Weight:0.00} kg";
             _labelSelectedPerCell.text = Spaced(item.BaseValue / (width * height));
+        }
+
+        // ---- the bin ----
+
+        /// <summary>What is waiting in the bin for its confirming click, or null. For tests.</summary>
+        public string ArmedForTrash => _trashInstanceId;
+
+        /// <summary>The item is in a grid, not worn. Returns why it cannot be thrown away, or null.</summary>
+        private string TrashError(string instanceId)
+        {
+            if (instanceId == null)
+            {
+                return "Nothing is being dragged.";
+            }
+
+            if (_loadout.FindByInstance(instanceId) != null)
+            {
+                return "That is worn - take it off before throwing it away.";
+            }
+
+            return TryViewOf(instanceId) == null ? "That item is not in a grid." : null;
+        }
+
+        /// <summary>
+        /// Puts an item in the bin, where it waits. This is what dropping on the bin does: nothing is
+        /// destroyed yet, because a drop that lands an inch wide would otherwise cost the item. Returns
+        /// why it could not, or null.
+        /// </summary>
+        public string ArmTrash(string instanceId)
+        {
+            var error = TrashError(instanceId);
+            if (error != null)
+            {
+                return error;
+            }
+
+            var item = _catalog[ItemIdOf(instanceId)];
+            _trashInstanceId = instanceId;
+            if (_trashIcon != null)
+            {
+                _trashIcon.style.color = BinArmedColor;
+            }
+
+            if (_trashLabel != null)
+            {
+                _trashLabel.text = "SURE?";
+            }
+
+            if (_trashBin != null)
+            {
+                _trashBin.AddToClassList("trash-bin-armed");
+                _trashBin.tooltip = "Click to destroy " + item.Name;
+            }
+
+            ShowMessage(item.Name + " is in the bin. Click the bin to destroy it; click anything else to keep it.");
+            return null;
+        }
+
+        /// <summary>Takes the item back out of the bin, destroying nothing.</summary>
+        public void CancelTrash()
+        {
+            _trashInstanceId = null;
+            if (_trashIcon != null)
+            {
+                _trashIcon.style.color = BinIdleColor;
+            }
+
+            if (_trashLabel != null)
+            {
+                _trashLabel.text = "BIN";
+            }
+
+            if (_trashBin != null)
+            {
+                _trashBin.RemoveFromClassList("trash-bin-armed");
+                _trashBin.RemoveFromClassList("trash-bin-over");
+                _trashBin.tooltip = BinHint;
+            }
+        }
+
+        /// <summary>
+        /// The confirming click: what is in the bin is gone. Returns why it could not be destroyed, or
+        /// null. Nothing is recorded anywhere else - a thrown-away item is not a "left behind" one.
+        /// </summary>
+        public string ConfirmTrash()
+        {
+            var instanceId = _trashInstanceId;
+            if (instanceId == null)
+            {
+                return null;
+            }
+
+            CancelTrash(); // whatever happens next, a second click must not find it still in there
+
+            var blocked = ProfileRules.StashEditError(_session.Profile);
+            if (blocked != null)
+            {
+                ShowMessage(blocked);
+                return blocked;
+            }
+
+            var view = TryViewOf(instanceId);
+            if (view == null)
+            {
+                return "That item is not in a grid any more.";
+            }
+
+            var itemId = ItemIdOf(instanceId);
+            var trimmed = TrashRules.Without(view.Grid, instanceId);
+            var saveError = Persist(new Dictionary<GridView, StashGrid> { [view] = trimmed });
+            if (saveError != null)
+            {
+                return saveError;
+            }
+
+            view.Grid = trimmed;
+            _selectedInstanceId = null;
+            RefreshAll();
+            ClearSelection();
+            ShowMessage(_catalog[itemId].Name + " destroyed.");
+            return null;
+        }
+
+        private void OnBinClicked()
+        {
+            if (_trashInstanceId == null)
+            {
+                ShowMessage(BinHint);
+                return;
+            }
+
+            ConfirmTrash();
         }
 
         // ---- the toolbar and the bottom bar ----
@@ -1659,6 +1898,13 @@ namespace Safehouse.UI
                 return;
             }
 
+            var blocked = ProfileRules.StashEditError(_session.Profile);
+            if (blocked != null)
+            {
+                ShowMessage(blocked);
+                return;
+            }
+
             Profile opened;
             IReadOnlyList<string> found;
             try
@@ -1730,6 +1976,13 @@ namespace Safehouse.UI
         /// </summary>
         private void SortStash()
         {
+            var blocked = ProfileRules.StashEditError(_session.Profile);
+            if (blocked != null)
+            {
+                ShowMessage(blocked); // repacking is still a change to a character who cannot make one
+                return;
+            }
+
             var ordered = StashView.Grid.Stash
                 .OrderBy(instance => _catalog[instance.ItemId].Category, StringComparer.OrdinalIgnoreCase)
                 .ThenByDescending(instance => _catalog[instance.ItemId].Width * _catalog[instance.ItemId].Height)

@@ -7,7 +7,8 @@ namespace Safehouse.Core
     {
         /// <summary>
         /// Why this character's stash and carried grids cannot be rearranged right now, or null when they can.
-        /// Someone away on an expedition or downed is not there to have their things moved (Python require_active).
+        /// Someone away on an expedition or downed is not there to have their things moved (Python require_active);
+        /// a dead character is not there at all.
         /// </summary>
         public static string StashEditError(Profile profile)
         {
@@ -17,6 +18,8 @@ namespace Safehouse.Core
                     return $"{profile.DisplayName} is away on an expedition.";
                 case CharacterSheet.Downed:
                     return $"{profile.DisplayName} is downed.";
+                case CharacterSheet.Dead:
+                    return $"{profile.DisplayName} is dead.";
                 default:
                     return null;
             }
@@ -25,10 +28,20 @@ namespace Safehouse.Core
         /// <summary>
         /// Why this character's gear cannot be changed right now, or null when it can. Unlike the stash, gear can be
         /// changed while a character is away - it is read fresh when their next zone starts - but not while downed
-        /// (Python require_not_downed).
+        /// (Python require_not_downed) or dead.
         /// </summary>
-        public static string GearEditError(Profile profile) =>
-            profile.Status == CharacterSheet.Downed ? $"{profile.DisplayName} is downed and cannot change gear." : null;
+        public static string GearEditError(Profile profile)
+        {
+            switch (profile.Status)
+            {
+                case CharacterSheet.Downed:
+                    return $"{profile.DisplayName} is downed and cannot change gear.";
+                case CharacterSheet.Dead:
+                    return $"{profile.DisplayName} is dead and cannot change gear.";
+                default:
+                    return null;
+            }
+        }
 
         /// <summary>
         /// Every item must exist in the catalog, fit inside its grid without overlapping, and every instance id

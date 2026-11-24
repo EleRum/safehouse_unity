@@ -196,16 +196,146 @@ namespace Safehouse.Data
             var limits = Limits(current);
             var resolved = ExpeditionRules.ResolveZone(expedition, _maps[expedition.MapId], _catalog,
                 new LootTables(_catalog, _containers), _gear, _combat, fighters, limits);
-            Commit(resolved.Expedition, ExpeditionRules.SyncProfiles(current, resolved.Fighters), null);
-            return resolved.Expedition;
+            var changed = ExpeditionRules.SyncProfiles(current, resolved.Fighters);
+            var recorded = ExpeditionRules.NoteDeaths(resolved.Expedition, current, changed);
+            Commit(recorded, changed, null);
+            return recorded;
+        }
+
+        /// <summary>
+        /// Anything still on the floor is gone once the party walks on. Only what was dragged into the
+        /// rig or backpack comes with them.
+        /// </summary>
+        private Expedition AbandonFloor(Expedition expedition)
+        {
+            if (expedition == null || expedition.Loot.Count == 0)
+            {
+                return expedition;
+            }
+
+            var names = expedition.Loot.Values.SelectMany(items => items)
+                .Select(id => _catalog.TryGetValue(id, out var item) ? item.Name : id)
+                .ToList();
+
+            var discarded = expedition.Discarded.ToList();
+            discarded.AddRange(names.Count == 0 ? new List<string>() : expedition.Loot.Values.SelectMany(items => items));
+
+            var log = expedition.Log.ToList();
+            log.Add("Left behind: " + string.Join(", ", names) + ".");
+
+            var updated = expedition.With(loot: new Dictionary<string, List<string>>(),
+                discarded: discarded, log: log);
+            _expeditions.Save(updated);
+            return updated;
         }
 
         public Expedition Move(Expedition expedition, string nodeId)
         {
             var current = LoadParty(expedition);
+            expedition = AbandonFloor(expedition);
             var resolved = ExpeditionRules.Move(expedition, nodeId, _maps[expedition.MapId], _combat, _raids, Fighters(current));
-            Commit(resolved.Expedition, ExpeditionRules.SyncProfiles(current, resolved.Fighters), null);
-            return resolved.Expedition;
+            var changed = ExpeditionRules.SyncProfiles(current, resolved.Fighters);
+            var recorded = ExpeditionRules.NoteDeaths(resolved.Expedition, current, changed);
+            Commit(recorded, changed, null);
+            return recorded;
+        }
+
+        /// <summary>
+        /// Drops one of a character's finds on purpose, so a full bag can be made room in. The item goes
+        /// to the same list the carry limit uses, so the log remembers it was left behind.
+        /// </summary>
+        public Expedition DiscardLoot(Expedition expedition, string profileId, string itemId)
+        {
+            if (expedition == null || profileId == null || itemId == null
+                || !expedition.Loot.TryGetValue(profileId, out var carried))
+            {
+                return expedition;
+            }
+
+            var index = carried.LastIndexOf(itemId);
+            if (index < 0)
+            {
+                return expedition;
+            }
+
+            var loot = expedition.Loot.ToDictionary(pair => pair.Key, pair => pair.Value.ToList());
+            loot[profileId].RemoveAt(index);
+
+            var discarded = expedition.Discarded.ToList();
+            discarded.Add(itemId);
+
+            var log = expedition.Log.ToList();
+            log.Add("Dropped " + (_catalog.TryGetValue(itemId, out var item) ? item.Name : itemId) + ".");
+
+            var updated = expedition.With(loot: loot, discarded: discarded, log: log);
+            _expeditions.Save(updated);
+            return updated;
+        }
+
+        /// <summary>
+        /// Destroys one find off the floor - the bin, not the drop. It does not go into
+        /// <see cref="Expedition.Discarded"/>, because that list is what the "left behind, no room"
+        /// line and the carry-limit note read, and an item thrown away on purpose was not left
+        /// behind. The trip log still says what happened.
+        /// </summary>
+        public Expedition DestroyLoot(Expedition expedition, string profileId, string itemId)
+        {
+            if (expedition == null || profileId == null || itemId == null)
+            {
+                return expedition;
+            }
+
+            var loot = TrashRules.WithoutFind(expedition.Loot, profileId, itemId);
+            if (loot == null)
+            {
+                return expedition;
+            }
+
+            var log = expedition.Log.ToList();
+            log.Add("Threw away " + (_catalog.TryGetValue(itemId, out var item) ? item.Name : itemId) + ".");
+
+            var updated = expedition.With(loot: loot, log: log);
+            _expeditions.Save(updated);
+            return updated;
+        }
+
+        /// <summary>
+        /// The bin for what a character is carrying mid-raid: the rig and the backpack are what fills up
+        /// out there, so they need a way to empty a cell without walking to an exit. Like the floor's bin
+        /// this destroys the item - nothing goes into <see cref="Expedition.Discarded"/>, which is the list
+        /// of things walked away from - and the trip log gets one line. Returns null, or why it was refused.
+        /// </summary>
+        public string DestroyCarried(Expedition expedition, string profileId, string instanceId)
+        {
+            if (expedition == null || profileId == null || instanceId == null)
+            {
+                return "Nothing is being carried.";
+            }
+
+            if (!expedition.Party.Contains(profileId))
+            {
+                return "That character is not on this trip.";
+            }
+
+            var profile = _profiles.Load(profileId);
+            var rig = TrashRules.Without(profile.Rig, instanceId);
+            var backpack = TrashRules.Without(profile.Backpack, instanceId);
+            if (ReferenceEquals(rig, profile.Rig) && ReferenceEquals(backpack, profile.Backpack))
+            {
+                return "That item is not carried.";
+            }
+
+            var itemId = profile.Rig.Stash.Concat(profile.Backpack.Stash)
+                .FirstOrDefault(item => item.InstanceId == instanceId)?.ItemId;
+            var log = expedition.Log.ToList();
+            log.Add("Threw away " + (itemId != null && _catalog.TryGetValue(itemId, out var definition)
+                ? definition.Name
+                : itemId ?? "an item") + ".");
+
+            // One commit, so the log and the emptied bag cannot disagree about what happened.
+            Commit(expedition.With(log: log),
+                new Dictionary<string, Profile> { [profileId] = profile.With(rig: rig, backpack: backpack) }, null);
+            return null;
         }
 
         public Expedition Choose(Expedition expedition, int choiceIndex)
@@ -214,25 +344,9 @@ namespace Safehouse.Data
             var resolved = ExpeditionRules.Choose(expedition, choiceIndex, _maps[expedition.MapId], _catalog,
                 new LootTables(_catalog, _containers), _raids, _gear, _combat, Fighters(current), Limits(current));
             var changed = ExpeditionRules.SyncProfiles(current, resolved.Fighters);
-            var done = resolved.Expedition;
-            if (done.Loot.Count > 0)
-            {
-                var baseProfiles = done.Loot.Keys.ToDictionary(id => id, id => changed.ContainsKey(id) ? changed[id] : current[id]);
-                var delivery = Deliver(done.Loot, baseProfiles);
-                foreach (var pair in delivery.Profiles)
-                {
-                    changed[pair.Key] = pair.Value;
-                }
+            var done = ExpeditionRules.NoteDeaths(resolved.Expedition, current, changed);
 
-                var discarded = done.Discarded.ToList();
-                foreach (var items in delivery.Leftover.Values)
-                {
-                    discarded.AddRange(items);
-                }
-
-                done = done.With(loot: new Dictionary<string, List<string>>(), discarded: discarded);
-            }
-
+            // Finds stay on the floor until the player drags them into the rig or backpack.
             Commit(done, changed, null);
             return done;
         }
@@ -242,10 +356,12 @@ namespace Safehouse.Data
             var current = LoadParty(expedition);
             var resolved = ExpeditionRules.LeaveZone(expedition, action, _maps[expedition.MapId], _raids, _gear, _combat,
                 Fighters(current));
-            Commit(resolved.Expedition, ExpeditionRules.SyncProfiles(current, resolved.Fighters), null);
-            return resolved.Expedition.Status == ExpeditionStatus.AwaitingChoice
-                ? ChooseExtract(resolved.Expedition)
-                : resolved.Expedition;
+            var changed = ExpeditionRules.SyncProfiles(current, resolved.Fighters);
+            var recorded = ExpeditionRules.NoteDeaths(resolved.Expedition, current, changed);
+            Commit(recorded, changed, null);
+            return recorded.Status == ExpeditionStatus.AwaitingChoice
+                ? ChooseExtract(recorded)
+                : recorded;
         }
 
         public Expedition ChooseContinue(Expedition expedition, double now)
@@ -262,7 +378,9 @@ namespace Safehouse.Data
             var deliverable = new Dictionary<string, List<string>>();
             foreach (var pair in done.Loot)
             {
-                if (current[pair.Key].Status != CharacterSheet.Downed)
+                // Whoever is not on their feet brings nothing out: a downed character is carried, and a
+                // dead one is left where they fell.
+                if (ExpeditionRules.OnTheirFeet(current[pair.Key]))
                 {
                     deliverable[pair.Key] = pair.Value;
                 }
@@ -272,7 +390,7 @@ namespace Safehouse.Data
             var changed = new Dictionary<string, Profile>();
             foreach (var profileId in expedition.Party)
             {
-                if (current[profileId].Status == CharacterSheet.Downed)
+                if (!ExpeditionRules.OnTheirFeet(current[profileId]))
                 {
                     continue;
                 }
@@ -322,18 +440,45 @@ namespace Safehouse.Data
             {
                 var profile = profiles[pair.Key];
                 var stash = profile.Stash;
+                var rig = profile.Rig;
+                var backpack = profile.Backpack;
                 var kept = new List<string>();
                 foreach (var itemId in pair.Value)
                 {
-                    var spot = PlacementRules.FirstFit(stash, _catalog, itemId);
+                    // Rig first, then backpack, then the stash: the two grids are what the carry limit
+                    // already measures, and they are what the player sees on the way out.
+                    var instance = ItemInstance.Create(Guid.NewGuid().ToString("N"), itemId, 0, 0);
+                    var spot = PlacementRules.FirstFit(rig, _catalog, itemId);
+                    if (spot != null)
+                    {
+                        rig = rig.With(rig.Stash.Concat(new[]
+                        {
+                            ItemInstance.Create(instance.InstanceId, itemId, spot.Value.X, spot.Value.Y, spot.Value.Rotation),
+                        }));
+                        continue;
+                    }
+
+                    spot = PlacementRules.FirstFit(backpack, _catalog, itemId);
+                    if (spot != null)
+                    {
+                        backpack = backpack.With(backpack.Stash.Concat(new[]
+                        {
+                            ItemInstance.Create(instance.InstanceId, itemId, spot.Value.X, spot.Value.Y, spot.Value.Rotation),
+                        }));
+                        continue;
+                    }
+
+                    spot = PlacementRules.FirstFit(stash, _catalog, itemId);
                     if (spot == null)
                     {
                         kept.Add(itemId);
                         continue;
                     }
 
-                    var instance = ItemInstance.Create(Guid.NewGuid().ToString("N"), itemId, spot.Value.X, spot.Value.Y, spot.Value.Rotation);
-                    stash = stash.With(stash.Stash.Concat(new[] { instance }));
+                    stash = stash.With(stash.Stash.Concat(new[]
+                    {
+                        ItemInstance.Create(instance.InstanceId, itemId, spot.Value.X, spot.Value.Y, spot.Value.Rotation),
+                    }));
                 }
 
                 if (kept.Count > 0)
@@ -341,13 +486,198 @@ namespace Safehouse.Data
                     leftover[pair.Key] = kept;
                 }
 
-                if (stash != profile.Stash)
+                if (rig != profile.Rig || backpack != profile.Backpack || stash != profile.Stash)
                 {
-                    changed[pair.Key] = profile.With(stash: stash);
+                    changed[pair.Key] = profile.With(stash: stash, rig: rig, backpack: backpack);
                 }
             }
 
             return (changed, leftover);
+        }
+
+        /// <summary>
+        /// Takes one find off the floor and puts it in a chosen cell of the rig or backpack. Refused with a
+        /// reason when it does not fit, and the find stays on the floor.
+        /// </summary>
+        public string StowLoot(Expedition expedition, string profileId, string instanceId, bool toBackpack,
+            int x, int y, int rotation)
+        {
+            if (expedition == null || !expedition.Loot.TryGetValue(profileId, out var floor))
+            {
+                return "Nothing is on the floor.";
+            }
+
+            var index = floor.ToList().FindIndex(id => id == instanceId);
+            if (index < 0)
+            {
+                return "That is not on the floor.";
+            }
+
+            var profile = _profiles.Load(profileId);
+            var target = toBackpack ? profile.Backpack : profile.Rig;
+            var error = PlacementRules.PlacementError(target, _catalog, itemId: instanceId, x: x, y: y,
+                rotation: rotation, ignoreInstanceId: null);
+            if (error != null)
+            {
+                return error;
+            }
+
+            var placed = target.With(target.Stash.Concat(new[]
+            {
+                ItemInstance.Create(Guid.NewGuid().ToString("N"), instanceId, x, y, rotation),
+            }));
+
+            var updatedProfile = toBackpack
+                ? profile.With(backpack: placed)
+                : profile.With(rig: placed);
+            _profiles.Save(updatedProfile);
+
+            var loot = expedition.Loot.ToDictionary(pair => pair.Key, pair => pair.Value.ToList());
+            loot[profileId].RemoveAt(index);
+            if (loot[profileId].Count == 0)
+            {
+                loot.Remove(profileId);
+            }
+
+            var updated = expedition.With(loot: loot);
+            _expeditions.Save(updated);
+            return null;
+        }
+
+        /// <summary>
+        /// Moves a carried item to a cell in either grid, or between them. Returns why it was refused, or
+        /// null when it moved. Placement is the same rule the stash uses.
+        /// </summary>
+        public string MoveCarried(string profileId, string instanceId, bool toBackpack, int x, int y, int rotation)
+        {
+            var profile = _profiles.Load(profileId);
+            var inRig = profile.Rig.Stash.Any(item => item.InstanceId == instanceId);
+            var inBackpack = profile.Backpack.Stash.Any(item => item.InstanceId == instanceId);
+            if (!inRig && !inBackpack)
+            {
+                return "That item is not carried.";
+            }
+
+            var rig = profile.Rig;
+            var backpack = profile.Backpack;
+            try
+            {
+                if (inRig == toBackpack)
+                {
+                    // same grid: a move inside it
+                    if (inRig)
+                    {
+                        rig = PlacementRules.Move(rig, _catalog, instanceId, x, y, rotation);
+                    }
+                    else
+                    {
+                        backpack = PlacementRules.Move(backpack, _catalog, instanceId, x, y, rotation);
+                    }
+                }
+                else
+                {
+                    var moved = PlacementRules.Transfer(inRig ? rig : backpack, inRig ? backpack : rig,
+                        _catalog, instanceId, x, y, rotation);
+                    if (inRig)
+                    {
+                        rig = moved.From;
+                        backpack = moved.To;
+                    }
+                    else
+                    {
+                        backpack = moved.From;
+                        rig = moved.To;
+                    }
+                }
+            }
+            catch (ValidationException error)
+            {
+                return error.Message;
+            }
+
+            _profiles.Save(profile.With(rig: rig, backpack: backpack));
+            return null;
+        }
+
+        /// <summary>
+        /// Throws one carried item away mid-raid, freeing its cells. It goes to the same discarded list
+        /// the log reads, so the record matches what happened.
+        /// </summary>
+        public Expedition DropCarried(Expedition expedition, string profileId, string instanceId)
+        {
+            if (expedition == null || profileId == null || instanceId == null
+                || !expedition.Party.Contains(profileId))
+            {
+                return expedition;
+            }
+
+            var profile = _profiles.Load(profileId);
+            var inRig = profile.Rig.Stash.FirstOrDefault(item => item.InstanceId == instanceId);
+            var inBackpack = profile.Backpack.Stash.FirstOrDefault(item => item.InstanceId == instanceId);
+            var dropped = inRig ?? inBackpack;
+            if (dropped == null)
+            {
+                return expedition;
+            }
+
+            var rig = inRig == null
+                ? profile.Rig
+                : profile.Rig.With(profile.Rig.Stash.Where(item => item.InstanceId != instanceId));
+            var backpack = inBackpack == null
+                ? profile.Backpack
+                : profile.Backpack.With(profile.Backpack.Stash.Where(item => item.InstanceId != instanceId));
+
+            _profiles.Save(profile.With(rig: rig, backpack: backpack));
+
+            var discarded = expedition.Discarded.ToList();
+            discarded.Add(dropped.ItemId);
+
+            var log = expedition.Log.ToList();
+            log.Add("Dropped " + (_catalog.TryGetValue(dropped.ItemId, out var item)
+                ? item.Name
+                : dropped.ItemId) + ".");
+
+            var updated = expedition.With(discarded: discarded, log: log);
+            _expeditions.Save(updated);
+            return updated;
+        }
+
+        /// <summary>
+        /// Puts a character's finds straight into their rig and backpack, first fit, and returns what
+        /// would not go in. The grids are the carrying space, so they decide - not a separate budget.
+        /// </summary>
+        private (Profile Profile, IReadOnlyList<string> Left) PlaceLoot(Profile profile, IEnumerable<string> itemIds)
+        {
+            var rig = profile.Rig;
+            var backpack = profile.Backpack;
+            var left = new List<string>();
+            foreach (var itemId in itemIds ?? Enumerable.Empty<string>())
+            {
+                var id = Guid.NewGuid().ToString("N");
+                var spot = PlacementRules.FirstFit(rig, _catalog, itemId);
+                if (spot != null)
+                {
+                    rig = rig.With(rig.Stash.Concat(new[]
+                    {
+                        ItemInstance.Create(id, itemId, spot.Value.X, spot.Value.Y, spot.Value.Rotation),
+                    }));
+                    continue;
+                }
+
+                spot = PlacementRules.FirstFit(backpack, _catalog, itemId);
+                if (spot != null)
+                {
+                    backpack = backpack.With(backpack.Stash.Concat(new[]
+                    {
+                        ItemInstance.Create(id, itemId, spot.Value.X, spot.Value.Y, spot.Value.Rotation),
+                    }));
+                    continue;
+                }
+
+                left.Add(itemId);
+            }
+
+            return (profile.With(rig: rig, backpack: backpack), left);
         }
 
         private void Commit(Expedition expedition, Dictionary<string, Profile> profiles, Account account)

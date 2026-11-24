@@ -456,11 +456,12 @@ namespace Safehouse.UI
                 nameLabel.AddToClassList(open ? "text-accent" : "");
                 info.Add(nameLabel);
 
-                var meta = new Label(profile.Status.Replace('_', ' ').ToUpperInvariant()
+                var dead = profile.Status == CharacterSheet.Dead;
+                var meta = new Label((dead ? "KILLED IN ACTION" : profile.Status.Replace('_', ' ').ToUpperInvariant())
                     + "     " + profile.Money + " R");
                 meta.style.fontSize = 12;
                 meta.style.marginTop = 2;
-                meta.AddToClassList("text-muted");
+                meta.AddToClassList(dead ? "text-danger" : "text-muted");
                 info.Add(meta);
 
                 row.Add(info);
@@ -477,14 +478,20 @@ namespace Safehouse.UI
                         return;
                     }
 
+                    if (dead)
+                    {
+                        Say(name + " was killed in action, so there is nobody left to open. DELETE removes the file.");
+                        return;
+                    }
+
                     Open(id);
                 })
                 {
-                    text = open ? "CURRENT" : "OPEN",
+                    text = open ? "CURRENT" : dead ? "KIA" : "OPEN",
                     style = { marginRight = 8, height = 30, fontSize = 11, paddingLeft = 14, paddingRight = 14 },
                 };
                 openButton.AddToClassList("btn");
-                openButton.AddToClassList(open ? "btn-outline" : "btn-primary");
+                openButton.AddToClassList(open ? "btn-outline" : dead ? "btn-disabled" : "btn-primary");
                 row.Add(openButton);
 
                 var deleteButton = new Button { text = "DELETE" };

@@ -798,6 +798,80 @@ namespace Safehouse.Tests
             }
         }
 
+        // ---- the bin ----
+
+        [UnityTest]
+        public IEnumerator DroppingAnItemOnTheBinOnlyArmsIt()
+        {
+            var controller = CreateGearScreen();
+            yield return null;
+            yield return null; // layout, so worldBound is real
+
+            var root = controller.GetComponent<UIDocument>().rootVisualElement;
+            var bin = root.Q<VisualElement>("stash-bin");
+            var cell = SmallStashCell(root);
+            var instanceId = cell.name.Substring("cell-".Length);
+            var press = cell.worldBound.center;
+            var over = bin.worldBound.center;
+
+            Send(cell, PointerDownEvent.GetPooled(MakeTouch(TouchPhase.Began, press)));
+            Send(cell, PointerMoveEvent.GetPooled(MakeTouch(TouchPhase.Moved, over)));
+
+            Assert.IsTrue(bin.ClassListContains("trash-bin-over"), "the bin shows that a drop would land in it");
+            Assert.IsNull(root.Q(className: "cell-ghost"), "the bin is not a grid, so there is no landing preview");
+
+            Send(cell, PointerUpEvent.GetPooled(MakeTouch(TouchPhase.Ended, over)));
+
+            Assert.AreEqual(instanceId, controller.ArmedForTrash, "the drop that landed is waiting in the bin");
+            Assert.IsTrue(bin.ClassListContains("trash-bin-armed"));
+            Assert.AreEqual("SURE?", root.Q<Label>("stash-bin-label").text);
+            Assert.IsTrue(Saves().Load(SampleCharacter.ProfileId).Stash.Stash.Any(item => item.InstanceId == instanceId),
+                "nothing is destroyed by the drop itself");
+        }
+
+        [UnityTest]
+        public IEnumerator TheSecondClickOnTheBinDestroysTheItem()
+        {
+            var controller = CreateGearScreen();
+            yield return null;
+
+            var root = controller.GetComponent<UIDocument>().rootVisualElement;
+            var bin = root.Q<VisualElement>("stash-bin");
+            var instanceId = SmallStashCell(root).name.Substring("cell-".Length);
+
+            Assert.IsNull(controller.ArmTrash(instanceId));
+            Assert.IsNull(controller.ConfirmTrash());
+
+            Assert.IsNull(controller.ArmedForTrash, "the bin is empty again");
+            Assert.IsFalse(bin.ClassListContains("trash-bin-armed"));
+            Assert.IsFalse(Saves().Load(SampleCharacter.ProfileId).Stash.Stash.Any(item => item.InstanceId == instanceId),
+                "it is gone from the file");
+            Assert.IsFalse(root.Q<VisualElement>("stash-grid").Children().Any(child => child.name == "cell-" + instanceId),
+                "and from the stash");
+            Assert.IsNull(controller.ConfirmTrash(), "a second confirm has nothing left to destroy");
+            StringAssert.Contains("destroyed", controller.MessageText);
+        }
+
+        [UnityTest]
+        public IEnumerator WornGearCannotGoInTheBinAndTouchingAnythingElseCancelsIt()
+        {
+            var controller = CreateGearScreen();
+            yield return null;
+
+            Assert.IsNotNull(controller.ArmTrash(controller.EquippedInstanceIn("helmet")), "worn gear has to come off first");
+
+            var root = controller.GetComponent<UIDocument>().rootVisualElement;
+            var cell = SmallStashCell(root);
+            var instanceId = cell.name.Substring("cell-".Length);
+            Assert.IsNull(controller.ArmTrash(instanceId));
+
+            // Clicking the item again is the "no, keep it" answer.
+            Send(cell, PointerDownEvent.GetPooled(MakeTouch(TouchPhase.Began, cell.worldBound.center)));
+
+            Assert.IsNull(controller.ArmedForTrash);
+            Assert.IsTrue(Saves().Load(SampleCharacter.ProfileId).Stash.Stash.Any(item => item.InstanceId == instanceId));
+        }
+
         /// <summary>A 1x1 item's cell in the stash: 48px pitch minus the 2px gap is 46.</summary>
         private static VisualElement SmallStashCell(VisualElement root)
         {

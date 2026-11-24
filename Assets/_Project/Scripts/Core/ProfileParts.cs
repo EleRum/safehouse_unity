@@ -23,7 +23,13 @@ namespace Safehouse.Core
         public const string OnExpedition = "on_expedition";
         public const string Downed = "downed";
 
-        public static readonly IReadOnlyList<string> Statuses = new[] { Active, OnExpedition, Downed };
+        /// <summary>
+        /// Head or thorax at zero. Unlike <see cref="Downed"/> nothing brings a character back from it:
+        /// no medkit treats those parts, and the trip they died on takes what they were carrying.
+        /// </summary>
+        public const string Dead = "dead";
+
+        public static readonly IReadOnlyList<string> Statuses = new[] { Active, OnExpedition, Downed, Dead };
 
         /// <summary>The game's own split of <see cref="MaxHealth"/>.</summary>
         public static readonly IReadOnlyList<KeyValuePair<string, int>> BodyPartMaxHealth = new[]

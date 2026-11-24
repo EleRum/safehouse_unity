@@ -75,6 +75,11 @@ namespace Safehouse.Core
                 throw new ValidationException("There is nothing to use.");
             }
 
+            if (profile.Status == CharacterSheet.Dead)
+            {
+                throw new ValidationException($"{profile.DisplayName} is dead. A medkit will not change that.");
+            }
+
             if (profile.Stash.Stash.All(instance =>
                     !string.Equals(instance.ItemId, med.ItemId, StringComparison.Ordinal)))
             {

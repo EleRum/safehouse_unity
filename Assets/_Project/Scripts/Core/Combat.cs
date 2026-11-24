@@ -102,7 +102,8 @@ namespace Safehouse.Core
                 numbers.Scav["penetration"], numbers.Scav["damage"], numbers.Scav["fire_rate"], false);
     }
 
-    /// <summary>One character as they stand in a fight. Head or thorax at 0 downs them even if other parts remain.</summary>
+    /// <summary>One character as they stand in a fight. Head or thorax at 0 takes them out of it - and,
+    /// unlike losing a limb, kills them: see <see cref="ExpeditionRules.KilledBy"/>.</summary>
     public sealed class Fighter
     {
         public Fighter(string characterId, string name, IReadOnlyDictionary<string, int> bodyParts,

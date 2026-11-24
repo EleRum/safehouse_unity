@@ -51,6 +51,15 @@
                     <ui:Button name="character-next" text="&gt;" class="btn-char" />
                 </ui:VisualElement>
 
+                <!-- Dead is dead: what the character had is still shown, but nothing on this screen can
+                     change them again, so this block says so and the buttons that would try are hidden
+                     (see GearScreenController.ApplyDeathState). The flexible spacer below the weapon
+                     absorbs the extra height. -->
+                <ui:VisualElement name="death-banner" class="kia-panel" style="display: none; margin-bottom: 10px; padding: 9px 12px;">
+                    <ui:Label text="KILLED IN ACTION" class="kia-title" style="margin-bottom: 3px;" />
+                    <ui:Label name="death-banner-text" text="" class="kia-body" />
+                </ui:VisualElement>
+
                 <ui:VisualElement style="flex-direction: row; margin-bottom: 10px;">
                     <!-- left slot column -->
                     <ui:VisualElement style="width: 96px; flex-direction: column; margin-right: 10px;">
@@ -280,6 +289,12 @@
                         <ui:Button name="btn-open" text="OPEN" class="btn btn-outline" style="margin-left: 6px; font-size: 11px; width: 88px;" />
                         <ui:Button name="btn-equip" text="EQUIP" class="btn btn-primary" style="margin-left: 6px; font-size: 11px; width: 88px;" />
                         <ui:Button name="btn-to-hideout" text="TO HIDEOUT" class="btn btn-outline" style="margin-left: 6px; font-size: 11px; width: 110px;" />
+                    </ui:VisualElement>
+                    <!-- The bin takes a drop from any grid, then waits for one more click on itself:
+                         a one-click bin costs an item every time a drag lands an inch too far. -->
+                    <ui:VisualElement name="stash-bin" class="trash-bin" style="width: 68px; height: 68px; margin-left: 10px;">
+                        <ui:Label name="stash-bin-icon" text="×" style="font-size: 22px; -unity-font-style: bold; color: rgb(120, 132, 143);" />
+                        <ui:Label name="stash-bin-label" text="BIN" class="text-label" style="font-size: 9px; letter-spacing: 1.6px;" />
                     </ui:VisualElement>
                 </ui:VisualElement>
             </sh:FacetedPanel>
