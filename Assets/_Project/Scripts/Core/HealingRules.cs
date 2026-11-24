@@ -5,10 +5,13 @@ using System.Linq;
 namespace Safehouse.Core
 {
     /// <summary>
-    /// Using a medkit at home. The numbers are the same ones the automatic fight uses mid-raid
-    /// (gear.json's meds table): a heal pool that closes the worst wounds first, and the three
-    /// conditions a kit can clear. Without this a character who comes back hurt stays hurt forever,
-    /// because nothing outside a fight ever wrote to their body parts.
+    /// Using a medkit. The numbers are the same ones the automatic fight uses mid-raid (gear.json's meds
+    /// table): a heal pool that closes the worst wounds first, and the three conditions a kit can clear.
+    /// Without this a character who comes back hurt stays hurt forever, because nothing outside a fight
+    /// ever wrote to their body parts.
+    ///
+    /// Two places a kit can be: the stash at home (<see cref="Use"/>), and the rig or the backpack out on
+    /// a raid (<see cref="UseCarried"/>). The rules are identical; only the grid the kit leaves differs.
     /// </summary>
     public static class HealingRules
     {
@@ -63,9 +66,9 @@ namespace Safehouse.Core
         }
 
         /// <summary>
-        /// Applies one use of a medkit: heals up to its pool across the worst parts first, clears the
-        /// conditions it treats, and consumes one of the item. Whatever it cannot help with is left
-        /// alone, so using a bandage on a fracture does not quietly do nothing - the caller says so.
+        /// Applies one use of a medkit from the stash: heals up to its pool across the worst parts first,
+        /// clears the conditions it treats, and consumes one of the item. Whatever it cannot help with is
+        /// left alone, so using a bandage on a fracture does not quietly do nothing - the caller says so.
         /// </summary>
         public static (Profile Profile, int Healed, IReadOnlyList<string> Cleared) Use(Profile profile,
             MedStats med, IReadOnlyDictionary<string, ItemDefinition> catalog)
@@ -75,10 +78,7 @@ namespace Safehouse.Core
                 throw new ValidationException("There is nothing to use.");
             }
 
-            if (profile.Status == CharacterSheet.Dead)
-            {
-                throw new ValidationException($"{profile.DisplayName} is dead. A medkit will not change that.");
-            }
+            RefuseIfDead(profile);
 
             if (profile.Stash.Stash.All(instance =>
                     !string.Equals(instance.ItemId, med.ItemId, StringComparison.Ordinal)))
@@ -86,6 +86,62 @@ namespace Safehouse.Core
                 throw new ValidationException("That medkit is not in the stash.");
             }
 
+            var treated = Treat(profile, med);
+            var stash = InventoryRules.RemoveItems(profile.Stash, catalog, med.ItemId, 1);
+            return (profile.With(stash: stash, bodyParts: treated.Parts, conditions: treated.Conditions),
+                treated.Healed, treated.Cleared);
+        }
+
+        /// <summary>
+        /// The same use, for a kit the character is carrying: out on a raid the stash is back home, so the
+        /// only medkits there are the ones in the rig and the backpack - and it is the instance that says
+        /// which cell to free, since the same type can be in either grid.
+        /// </summary>
+        public static (Profile Profile, int Healed, IReadOnlyList<string> Cleared) UseCarried(Profile profile,
+            string instanceId, MedStats med)
+        {
+            if (profile == null || med == null || instanceId == null)
+            {
+                throw new ValidationException("There is nothing to use.");
+            }
+
+            RefuseIfDead(profile);
+
+            var inRig = profile.Rig.Stash.FirstOrDefault(item => item.InstanceId == instanceId);
+            var inBackpack = profile.Backpack.Stash.FirstOrDefault(item => item.InstanceId == instanceId);
+            if (inRig == null && inBackpack == null)
+            {
+                throw new ValidationException("That medkit is not carried.");
+            }
+
+            if (!string.Equals((inRig ?? inBackpack).ItemId, med.ItemId, StringComparison.Ordinal))
+            {
+                throw new ValidationException("That is not the medkit that was picked.");
+            }
+
+            var treated = Treat(profile, med);
+            var rig = inRig == null
+                ? profile.Rig
+                : profile.Rig.With(profile.Rig.Stash.Where(item => item.InstanceId != instanceId));
+            var backpack = inBackpack == null
+                ? profile.Backpack
+                : profile.Backpack.With(profile.Backpack.Stash.Where(item => item.InstanceId != instanceId));
+            return (profile.With(rig: rig, backpack: backpack, bodyParts: treated.Parts,
+                conditions: treated.Conditions), treated.Healed, treated.Cleared);
+        }
+
+        private static void RefuseIfDead(Profile profile)
+        {
+            if (profile.Status == CharacterSheet.Dead)
+            {
+                throw new ValidationException($"{profile.DisplayName} is dead. A medkit will not change that.");
+            }
+        }
+
+        /// <summary>The healing itself: worst wound first, then whatever conditions the kit treats.</summary>
+        private static (Dictionary<string, int> Parts, int Healed, IReadOnlyList<string> Cleared,
+            Dictionary<string, IReadOnlyList<string>> Conditions) Treat(Profile profile, MedStats med)
+        {
             var parts = new Dictionary<string, int>(profile.BodyParts);
             var pool = Math.Max(0, med.Heal);
             var healed = 0;
@@ -142,8 +198,7 @@ namespace Safehouse.Core
                 }
             }
 
-            var stash = InventoryRules.RemoveItems(profile.Stash, catalog, med.ItemId, 1);
-            return (profile.With(stash: stash, bodyParts: parts, conditions: conditions), healed, cleared);
+            return (parts, healed, cleared, conditions);
         }
     }
 }

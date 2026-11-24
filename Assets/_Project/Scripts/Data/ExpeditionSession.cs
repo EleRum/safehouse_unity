@@ -338,6 +338,65 @@ namespace Safehouse.Data
             return null;
         }
 
+        /// <summary>
+        /// Uses a medkit the character is carrying, mid-raid. The stash is back home, so the kit has to be
+        /// one of the instances in the rig or the backpack - and a character bleeding out at a cache is not
+        /// going to walk home for it. The treated parts and the freed cell are written with the log line in
+        /// one commit. Returns why it was refused, or null, and the line to show the player.
+        /// </summary>
+        public (string Error, string Message) UseCarriedMed(Expedition expedition, string profileId, string instanceId)
+        {
+            if (expedition == null || profileId == null || instanceId == null)
+            {
+                return ("Nothing is being used.", null);
+            }
+
+            if (!expedition.Party.Contains(profileId))
+            {
+                return ("That character is not on this trip.", null);
+            }
+
+            var profile = _profiles.Load(profileId);
+            var carried = profile.Rig.Stash.Concat(profile.Backpack.Stash)
+                .FirstOrDefault(item => item.InstanceId == instanceId);
+            if (carried == null)
+            {
+                return ("That item is not carried.", null);
+            }
+
+            var name = _catalog.TryGetValue(carried.ItemId, out var definition) ? definition.Name : carried.ItemId;
+            if (!_gear.Meds.TryGetValue(carried.ItemId, out var med))
+            {
+                return ($"{name} is not something you can use.", null);
+            }
+
+            if (!HealingRules.WouldHelp(profile, med))
+            {
+                return ($"{name} would not change anything: it heals "
+                    + (med.Heal > 0 ? med.Heal + " HP" : "no HP") + " and clears nothing you have.", null);
+            }
+
+            Profile treated;
+            int healed;
+            IReadOnlyList<string> cleared;
+            try
+            {
+                (treated, healed, cleared) = HealingRules.UseCarried(profile, instanceId, med);
+            }
+            catch (ValidationException error)
+            {
+                return (error.Message, null);
+            }
+
+            var log = expedition.Log.ToList();
+            log.Add("Used " + name + ".");
+            Commit(expedition.With(log: log), new Dictionary<string, Profile> { [profileId] = treated }, null);
+
+            var parts = healed > 0 ? healed + " HP healed" : "no HP healed";
+            var conditions = cleared.Count > 0 ? string.Join(", ", cleared) : "nothing cleared";
+            return (null, name + ": " + parts + ", " + conditions + ".");
+        }
+
         public Expedition Choose(Expedition expedition, int choiceIndex)
         {
             var current = LoadParty(expedition);

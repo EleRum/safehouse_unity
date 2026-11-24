@@ -59,6 +59,13 @@ namespace Safehouse.UI
         private static readonly Color BinIdleColor = new Color(0.471f, 0.518f, 0.561f);   // rgb(120, 132, 143)
         private static readonly Color BinArmedColor = new Color(0.851f, 0.643f, 0.255f);  // rgb(217, 164, 65)
 
+        /// <summary>
+        /// Pixels per grid cell out in a raid. The GEAR screen uses 48; this screen has a 400px side panel
+        /// instead of a whole stash panel, so it was 22 - and at that size an icon is a smudge and the
+        /// item cannot be told from the one next to it. 40 fits an 8-wide backpack (320px) in the panel.
+        /// </summary>
+        private const float RaidPitch = 40f;
+
         private void OnEnable()
         {
             _root = GetComponent<UIDocument>().rootVisualElement;
@@ -557,6 +564,16 @@ namespace Safehouse.UI
             party.AddToClassList("raid-party");
             party.Add(new Label("PARTY"));
             party[0].AddToClassList("text-label");
+
+            // Out here the stash is back home, so the carried grids are the only meds and the only bin -
+            // say so once rather than leaving the player to find the double click.
+            var tip = new Label("Double-click a medkit in a rig or backpack to use it; drag anything onto the bin to throw it away.");
+            tip.AddToClassList("text-muted");
+            tip.style.whiteSpace = WhiteSpace.Normal;
+            tip.style.fontSize = 10;
+            tip.style.marginTop = 4;
+            tip.style.marginBottom = 6;
+            party.Add(tip);
             var catalogForCards = Catalog();
             var gearForCards = GearLoader.Load(catalogForCards);
             foreach (var profileId in trip.Party)
@@ -649,8 +666,8 @@ namespace Safehouse.UI
                 // .cell is position:absolute for the grids; on the floor the tiles must flow, or
                 // every one of them stacks in the same corner and they cover each other.
                 tile.style.position = Position.Relative;
-                tile.style.width = definition.Width * 22;
-                tile.style.height = definition.Height * 22;
+                tile.style.width = definition.Width * RaidPitch;
+                tile.style.height = definition.Height * RaidPitch;
                 tile.style.marginRight = 4;
                 tile.style.marginBottom = 4;
                 var icon = _icons.Get(itemId);
@@ -682,10 +699,10 @@ namespace Safehouse.UI
             var bin = new Label("× BIN") { pickingMode = PickingMode.Position };
             bin.AddToClassList("trash-bin");
             bin.AddToClassList("text-label");
-            bin.style.fontSize = 9;
-            bin.style.height = 20;
-            bin.style.paddingLeft = 7;
-            bin.style.paddingRight = 7;
+            bin.style.fontSize = 11;
+            bin.style.height = 26;
+            bin.style.paddingLeft = 10;
+            bin.style.paddingRight = 10;
             bin.style.unityTextAlign = TextAnchor.MiddleCenter;
             bin.style.color = BinIdleColor;
             bin.tooltip = BinHint;
@@ -701,8 +718,8 @@ namespace Safehouse.UI
             var ghost = new VisualElement { pickingMode = PickingMode.Ignore };
             ghost.AddToClassList("cell");
             ghost.style.position = Position.Absolute;
-            ghost.style.width = width * 22;
-            ghost.style.height = height * 22;
+            ghost.style.width = width * RaidPitch;
+            ghost.style.height = height * RaidPitch;
             ghost.style.opacity = 0.75f;
             var icon = _icons.Get(itemId);
             if (icon != null)
@@ -722,7 +739,7 @@ namespace Safehouse.UI
             _dragFloorItem = itemId;
             _dragFloorProfile = floorOwner;
             _dragGrab = down.localPosition;
-            _dragMoved = false;
+            _dragStartPointer = down.position;
             _dragGhost = BeginFloorGhost(down, itemId, width, height);
             MoveGhost(down.position);
             _dragActive = true;
@@ -890,8 +907,8 @@ namespace Safehouse.UI
             {
                 style =
                 {
-                    width = grid.StashWidth * 22,
-                    height = grid.StashHeight * 22,
+                    width = grid.StashWidth * RaidPitch,
+                    height = grid.StashHeight * RaidPitch,
                     backgroundColor = new Color(0.078f, 0.09f, 0.106f),
                     borderTopWidth = 1,
                     borderBottomWidth = 1,
@@ -914,10 +931,10 @@ namespace Safehouse.UI
                         style =
                         {
                             position = Position.Absolute,
-                            left = x * 22,
-                            top = y * 22,
-                            width = 22,
-                            height = 22,
+                            left = x * RaidPitch,
+                            top = y * RaidPitch,
+                            width = RaidPitch,
+                            height = RaidPitch,
                             borderTopWidth = 1,
                             borderLeftWidth = 1,
                             borderTopColor = new Color(0.114f, 0.137f, 0.161f),
@@ -940,16 +957,21 @@ namespace Safehouse.UI
                 var instanceId = instance.InstanceId;
                 var carried = instance;
                 var owner = profile.ProfileId;
+                var usable = RaidGear.Meds.ContainsKey(instance.ItemId);
                 var tile = new VisualElement { pickingMode = PickingMode.Position };
+                // TrickleDown, like the GEAR screen's cells: anything a manipulator does with the press
+                // happens after this, so the drag and the double click are seen first.
                 tile.RegisterCallback<PointerDownEvent>(evt =>
-                    BeginDrag(evt, tile, carried, isBackpack, width, height, definition, owner));
+                    OnCarriedDown(evt, tile, carried, isBackpack, width, height, definition, owner),
+                    TrickleDown.TrickleDown);
                 tile.AddToClassList("cell");
                 tile.style.position = Position.Absolute;
-                tile.style.left = instance.X * 22;
-                tile.style.top = instance.Y * 22;
-                tile.style.width = width * 22;
-                tile.style.height = height * 22;
-                tile.tooltip = definition.Name + " - drag onto a cell to move it, or onto the bin";
+                tile.style.left = instance.X * RaidPitch;
+                tile.style.top = instance.Y * RaidPitch;
+                tile.style.width = width * RaidPitch;
+                tile.style.height = height * RaidPitch;
+                tile.tooltip = definition.Name
+                    + (usable ? " - double-click to use it, or drag it onto a cell" : " - drag onto a cell to move it, or onto the bin");
 
                 var icon = _icons.Get(instance.ItemId);
                 if (icon != null)
@@ -966,12 +988,107 @@ namespace Safehouse.UI
             return block;
         }
 
-        private bool _dragMoved;
         private bool _dragActive;
         private bool _dragFromFloor;
         private string _dragFloorItem;
         private string _dragFloorProfile; // whose floor row the dragged find came from
         private string _dragCarriedProfile; // whose rig or backpack the dragged item came from
+
+        // A press and release in the same place is a click, not a drop: `_dragStartPointer` is where the press
+        // landed, so OnDragUp can tell a drag from a click. The click timestamps are the double-click backstop.
+        private Vector3 _dragStartPointer;
+        private string _lastClickInstanceId;
+        private float _lastClickTime;
+
+        private GearData _raidGear;
+
+        /// <summary>gear.json, read once: the meds table is what decides whether a cell can be double-clicked.</summary>
+        private GearData RaidGear => _raidGear ?? (_raidGear = GearLoader.Load(Catalog()));
+
+        /// <summary>
+        /// A press on a carried item: the second press inside the double-click window uses it instead of
+        /// picking it up, so a medkit can be spent without leaving the raid.
+        /// </summary>
+        private void OnCarriedDown(PointerDownEvent down, VisualElement tile, ItemInstance instance, bool fromBackpack,
+            int width, int height, ItemDefinition definition, string owner)
+        {
+            if (down.button == 1)
+            {
+                // Right click does the same thing without the rhythm: out in a raid a hand wants the bandage
+                // now, and it is the one press that cannot be confused with picking something up.
+                CancelDrag();
+                UseCarriedMed(owner, instance);
+                return;
+            }
+
+            if (down.button != 0)
+            {
+                return;
+            }
+
+            // Two ways to recognise a double click: the runtime's own count on the pointer event, and a
+            // timestamp of the last press on this same instance, in case the platform leaves the count at 1.
+            var now = Time.unscaledTime;
+            var twice = down.clickCount >= 2
+                        || (instance.InstanceId == _lastClickInstanceId && now - _lastClickTime <= 0.4f);
+            _lastClickInstanceId = instance.InstanceId;
+            _lastClickTime = now;
+            if (twice)
+            {
+                _lastClickInstanceId = null; // a third press starts over
+                CancelDrag();
+                UseCarriedMed(owner, instance);
+                return;
+            }
+
+            // One press on a kit says what the second press would do - both a hint and the way to tell that
+            // the press reached the cell at all.
+            if (RaidGear.Meds.ContainsKey(instance.ItemId) && _hint != null)
+            {
+                _hint.text = NameOf(instance.ItemId) + ": double-click (or right-click) to use it.";
+            }
+
+            BeginDrag(down, tile, instance, fromBackpack, width, height, definition, owner);
+        }
+
+        /// <summary>
+        /// Uses a medkit out of the rig or backpack and says what it did. The refusal (not a medkit, nothing
+        /// to treat, dead) goes to the red line; the outcome goes to the hint, because it is not a failure.
+        /// </summary>
+        private void UseCarriedMed(string profileId, ItemInstance instance)
+        {
+            var session = GearScreenController.Current?.Session;
+            if (session == null)
+            {
+                return;
+            }
+
+            string failure = null;
+            string message = null;
+            try
+            {
+                var trip = OpenTrip(session);
+                if (trip != null)
+                {
+                    (failure, message) = Expeditions(session).UseCarriedMed(trip, profileId, instance.InstanceId);
+                    session.Reload();
+                }
+            }
+            catch (Exception error)
+            {
+                failure = error.Message;
+            }
+
+            Refresh(); // the grids and the hint are rebuilt from the file, so the outcome goes up after
+            if (failure != null)
+            {
+                _error.text = failure;
+            }
+            else if (message != null && _hint != null)
+            {
+                _hint.text = message;
+            }
+        }
 
         /// <summary>Lifts an item into a ghost that follows the pointer, and drops it on a cell.</summary>
         private void BeginDrag(PointerDownEvent down, VisualElement tile, ItemInstance instance, bool fromBackpack,
@@ -982,13 +1099,13 @@ namespace Safehouse.UI
             _dragFromBackpack = fromBackpack;
             _dragCarriedProfile = owner;
             _dragGrab = down.localPosition;
-            _dragMoved = false;
+            _dragStartPointer = down.position;
 
             _dragGhost = new VisualElement { pickingMode = PickingMode.Ignore };
             _dragGhost.AddToClassList("cell");
             _dragGhost.style.position = Position.Absolute;
-            _dragGhost.style.width = width * 22;
-            _dragGhost.style.height = height * 22;
+            _dragGhost.style.width = width * RaidPitch;
+            _dragGhost.style.height = height * RaidPitch;
             _dragGhost.style.opacity = 0.75f;
             var icon = _icons.Get(instance.ItemId);
             if (icon != null)
@@ -1021,7 +1138,6 @@ namespace Safehouse.UI
 
         private void OnDragMove(PointerMoveEvent move)
         {
-            _dragMoved = true;
             MoveGhost(move.position);
             HighlightBins(move.position);
         }
@@ -1035,9 +1151,13 @@ namespace Safehouse.UI
             var floorOwner = _dragFloorProfile;
             var fromBackpack = _dragFromBackpack;
             var grab = _dragGrab;
+            var start = _dragStartPointer;
+            var moved = (up.position - start).magnitude > 4f;
             CancelDrag();
 
-            if ((item == null && !fromFloor) || _expeditions == null)
+            // A press and release in the same place is a click, not a drop: it must not move the item to
+            // the cell it is already in (which for a turned item is not even its own cell).
+            if (!moved || (item == null && !fromFloor) || _expeditions == null)
             {
                 return;
             }
@@ -1079,8 +1199,8 @@ namespace Safehouse.UI
                 }
 
                 var local = board.Board.WorldToLocal(up.position) - grab;
-                var x = Mathf.RoundToInt(local.x / 22f);
-                var y = Mathf.RoundToInt(local.y / 22f);
+                var x = Mathf.RoundToInt(local.x / RaidPitch);
+                var y = Mathf.RoundToInt(local.y / RaidPitch);
                 var error = fromFloor
                     ? _expeditions.StowLoot(board.Trip, board.ProfileId, floorItem, !board.IsBackpack, x, y, 0)
                     : _expeditions.MoveCarried(board.ProfileId, item.InstanceId, board.IsBackpack, x, y, 0);
