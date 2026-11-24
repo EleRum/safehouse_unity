@@ -34,6 +34,22 @@
                     <ui:Button name="button-open-folder" text="OPEN FOLDER" class="btn btn-outline" style="margin-top: 8px; font-size: 11px; height: 26px;" />
                 </ui:VisualElement>
 
+                <ui:VisualElement class="card" style="padding: 10px 12px; margin-bottom: 10px;">
+                    <ui:Label text="AUDIO" class="text-label" style="margin-bottom: 8px;" />
+                    <ui:VisualElement style="flex-direction: row; align-items: center; margin-bottom: 6px;">
+                        <ui:Label text="MUSIC" class="text-mono" style="width: 54px; font-size: 11px;" />
+                        <ui:Slider name="slider-music" low-value="0" high-value="100" value="45" style="flex-grow: 1; margin-right: 10px;" />
+                        <ui:Label name="label-music" text="45" class="text-mono text-accent" style="width: 32px; font-size: 11px; -unity-text-align: middle-right;" />
+                    </ui:VisualElement>
+                    <ui:VisualElement style="flex-direction: row; align-items: center; margin-bottom: 8px;">
+                        <ui:Label text="SFX" class="text-mono" style="width: 54px; font-size: 11px;" />
+                        <ui:Slider name="slider-sfx" low-value="0" high-value="100" value="70" style="flex-grow: 1; margin-right: 10px;" />
+                        <ui:Label name="label-sfx" text="70" class="text-mono text-accent" style="width: 32px; font-size: 11px; -unity-text-align: middle-right;" />
+                    </ui:VisualElement>
+                    <ui:Button name="button-test-sound" text="PLAY A SOUND" class="btn btn-outline" style="font-size: 11px; height: 26px;" />
+                    <ui:Label text="Both volumes are kept in PlayerPrefs. Drop audio/&lt;id&gt;.wav next to the game's data files to replace the built-in sounds." class="text-muted" style="font-size: 10px; white-space: normal; margin-top: 8px;" />
+                </ui:VisualElement>
+
                 <ui:VisualElement style="flex-grow: 1;" />
                 <ui:Label name="label-status" text="" class="text-muted" style="font-size: 11px; white-space: normal;" />
             </sh:FacetedPanel>

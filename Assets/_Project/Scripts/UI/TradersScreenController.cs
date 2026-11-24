@@ -460,6 +460,7 @@ namespace Safehouse.UI
             _armedSaleId = null;
             Refresh();
             SelectStashItem(_selectedStashId);
+            AudioDirector.Play(Sound.Trade);
             SetStatus($"Bought {name} from {_trader.Name} for {TradingRules.Roubles(price)}");
             return null;
         }
@@ -492,6 +493,7 @@ namespace Safehouse.UI
             _selectedStashId = null;
             _armedSaleId = null;
             Refresh();
+            AudioDirector.Play(Sound.Trade);
             SetStatus($"Sold {(itemId == null ? "the item" : _catalog[itemId].Name)} to {_trader.Name} for {TradingRules.Roubles(result.Price)}");
             return null;
         }

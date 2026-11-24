@@ -1061,6 +1061,7 @@ namespace Safehouse.UI
                 SelectItem(instanceId); // the detail line shows the footprint, which a turn changes
             }
 
+            AudioDirector.Play(Sound.Move);
             return null;
         }
 
@@ -1155,6 +1156,7 @@ namespace Safehouse.UI
             _views[1].Grid = result.Rig;
             _views[2].Grid = result.Backpack;
             RefreshAll();
+            AudioDirector.Play(Sound.Equip);
             return null;
         }
 
@@ -1208,6 +1210,7 @@ namespace Safehouse.UI
             _views[1].Grid = result.Rig;
             _views[2].Grid = result.Backpack;
             RefreshAll();
+            AudioDirector.Play(Sound.Equip);
             return null;
         }
 
@@ -1550,6 +1553,7 @@ namespace Safehouse.UI
 
         private static void Reject(VisualElement element)
         {
+            AudioDirector.Play(Sound.Error);
             element.AddToClassList("cell-rejected");
             element.schedule.Execute(() => element.RemoveFromClassList("cell-rejected")).StartingIn(350);
         }
@@ -1778,6 +1782,7 @@ namespace Safehouse.UI
             _selectedInstanceId = null;
             RefreshAll();
             ClearSelection();
+            AudioDirector.Play(Sound.Trash);
             ShowMessage(_catalog[itemId].Name + " destroyed.");
             return null;
         }
@@ -1864,7 +1869,8 @@ namespace Safehouse.UI
             _selectedInstanceId = null;
             RefreshAll();
             ClearSelection();
-            ApplyVitals(_session.Profile); // the body-part panel is not part of RefreshAll
+            ApplyVitals(_session.Profile);
+            AudioDirector.Play(Sound.Heal);
 
             var parts = new List<string>();
             if (healed > 0)
@@ -1929,6 +1935,7 @@ namespace Safehouse.UI
             RefreshAll();
             ClearSelection();
             ApplyVitals(_session.Profile);
+            AudioDirector.Play(Sound.Case);
 
             var names = found
                 .Select(id => _catalog.TryGetValue(id, out var item) ? item.Name : id)
@@ -2016,6 +2023,7 @@ namespace Safehouse.UI
 
             StashView.Grid = packed;
             RefreshAll();
+            AudioDirector.Play(Sound.Move);
             ShowMessage("Stash sorted by category.");
         }
 

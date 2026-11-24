@@ -16,6 +16,10 @@ namespace Safehouse.UI
         private Label _labelDataFolder;
         private Button _buttonOpenFolder;
         private Label _labelStatus;
+        private Slider _music;
+        private Slider _sfx;
+        private Label _labelMusic;
+        private Label _labelSfx;
 
         private void OnEnable()
         {
@@ -26,6 +30,7 @@ namespace Safehouse.UI
             _labelDataFolder = _root.Q<Label>("label-data-folder");
             _buttonOpenFolder = _root.Q<Button>("button-open-folder");
             _labelStatus = _root.Q<Label>("label-status");
+            BindAudio();
 
             _root.Q<Button>("navtab-character").clicked += () => ScreenNavigator.Go("character");
             _root.Q<Button>("navtab-gear").clicked += () => ScreenNavigator.Go("gear");
@@ -60,6 +65,59 @@ namespace Safehouse.UI
             var path = ProfileRepository.DefaultFolder;
             _labelDataFolder.text = path;
             _labelStatus.text = "";
+            ShowVolumes();
+        }
+
+        /// <summary>
+        /// The two volume sliders and the button that proves the speakers are on. Both values live in
+        /// PlayerPrefs inside <see cref="AudioDirector"/>, so nothing here has to remember them.
+        /// </summary>
+        private void BindAudio()
+        {
+            _music = _root.Q<Slider>("slider-music");
+            _sfx = _root.Q<Slider>("slider-sfx");
+            _labelMusic = _root.Q<Label>("label-music");
+            _labelSfx = _root.Q<Label>("label-sfx");
+
+            if (_music != null)
+            {
+                _music.SetValueWithoutNotify(AudioDirector.MusicVolume * 100f);
+                _music.RegisterValueChangedCallback(changed =>
+                {
+                    AudioDirector.MusicVolume = changed.newValue / 100f;
+                    ShowVolumes();
+                });
+            }
+
+            if (_sfx != null)
+            {
+                _sfx.SetValueWithoutNotify(AudioDirector.SfxVolume * 100f);
+                _sfx.RegisterValueChangedCallback(changed =>
+                {
+                    AudioDirector.SfxVolume = changed.newValue / 100f;
+                    ShowVolumes();
+                    AudioDirector.Play(Sound.Case); // so the slider can be heard, not only seen
+                });
+            }
+
+            var test = _root.Q<Button>("button-test-sound");
+            if (test != null)
+            {
+                test.clicked += () => AudioDirector.Play(Sound.Case);
+            }
+        }
+
+        private void ShowVolumes()
+        {
+            if (_labelMusic != null)
+            {
+                _labelMusic.text = Mathf.RoundToInt(AudioDirector.MusicVolume * 100f).ToString();
+            }
+
+            if (_labelSfx != null)
+            {
+                _labelSfx.text = Mathf.RoundToInt(AudioDirector.SfxVolume * 100f).ToString();
+            }
         }
 
         private void OpenDataFolder()

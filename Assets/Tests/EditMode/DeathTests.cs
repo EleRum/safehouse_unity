@@ -88,6 +88,26 @@ namespace Safehouse.Tests
             Assert.IsFalse(ExpeditionRules.OnTheirFeet(profile.With(status: CharacterSheet.Dead)), "left behind");
         }
 
+        [Test]
+        public void APartOneHitFromGoneIsCritical()
+        {
+            var profile = Profile.CreateNew(NewId(), "Ana");
+            Assert.IsEmpty(ProfileRules.CriticalParts(profile), "a healthy character has nothing critical");
+
+            var head = profile.With(bodyParts: profile.BodyParts.ToDictionary(
+                pair => pair.Key, pair => pair.Key == "head" ? 5 : pair.Value));
+            CollectionAssert.AreEqual(new[] { "head" }, ProfileRules.CriticalParts(head).ToArray());
+
+            var leg = profile.With(bodyParts: profile.BodyParts.ToDictionary(
+                pair => pair.Key, pair => pair.Key == "left_leg" ? 0 : pair.Value));
+            CollectionAssert.AreEqual(new[] { "left_leg" }, ProfileRules.CriticalParts(leg).ToArray(),
+                "a part already at zero counts as critical too");
+
+            var bruised = profile.With(bodyParts: profile.BodyParts.ToDictionary(
+                pair => pair.Key, pair => pair.Key == "thorax" ? 40 : pair.Value));
+            Assert.IsEmpty(ProfileRules.CriticalParts(bruised), "half a thorax is not one hit from gone");
+        }
+
         /// <summary>A healthy character with one item in the rig and one in the backpack.</summary>
         private static Profile Carrying()
         {

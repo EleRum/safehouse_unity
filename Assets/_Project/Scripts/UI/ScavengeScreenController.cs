@@ -118,6 +118,7 @@ namespace Safehouse.UI
 
         private void Hide()
         {
+            AudioDirector.Heartbeat(false); // the pulse belongs to this screen, not to the menu
             HideDeathNotice();
             _root.style.display = DisplayStyle.None;
         }
@@ -165,6 +166,7 @@ namespace Safehouse.UI
             }
 
             var trip = OpenTrip(session);
+            SyncHeartbeat(session, trip);
             if (trip == null)
             {
                 DrawLaunch(session);
@@ -337,6 +339,10 @@ namespace Safehouse.UI
 
             var overlay = new VisualElement { pickingMode = PickingMode.Position };
             overlay.AddToClassList("kia-overlay");
+
+            // The end of a save gets the one sound nothing else uses, and the raid bed stops with it.
+            AudioDirector.Play(Sound.Death);
+            AudioDirector.Silence();
 
             var panel = new VisualElement { pickingMode = PickingMode.Position };
             panel.AddToClassList("kia-modal");
@@ -855,10 +861,12 @@ namespace Safehouse.UI
             if (_error != null && failure != null)
             {
                 _error.text = failure; // Refresh clears it, so it goes up afterwards
+                AudioDirector.Play(Sound.Error);
             }
             else if (_hint != null && name != null)
             {
                 _hint.text = name + " destroyed.";
+                AudioDirector.Play(Sound.Trash);
             }
         }
 
@@ -1083,10 +1091,12 @@ namespace Safehouse.UI
             if (failure != null)
             {
                 _error.text = failure;
+                AudioDirector.Play(Sound.Error);
             }
             else if (message != null && _hint != null)
             {
                 _hint.text = message;
+                AudioDirector.Play(Sound.Heal);
             }
         }
 
@@ -1347,6 +1357,9 @@ namespace Safehouse.UI
 
         private void Run(Func<Expedition> action, CharacterSession session)
         {
+            // Health before the action, per member: a raid sound is worth a lot more when it fires on the
+            // moment someone actually gets shot rather than on every button press.
+            var before = PartyHealth(session, OpenTrip(session));
             try
             {
                 var done = action();
@@ -1358,9 +1371,15 @@ namespace Safehouse.UI
                         : "Extracted. Standing members' loot is in the stash.")
                     : null;
 
+                if (PartyTookDamage(session, before))
+                {
+                    AudioDirector.Play(Sound.Shot);
+                }
+
                 if (done.Status == ExpeditionStatus.Completed)
                 {
                     AdvanceQuests(session, done);
+                    AudioDirector.Play(done.Outcome == "wiped" ? Sound.Death : Sound.Extract);
                 }
             }
             catch (Exception error)
@@ -1369,6 +1388,92 @@ namespace Safehouse.UI
             }
 
             Refresh();
+        }
+
+        /// <summary>
+        /// The heartbeat: on while anyone in the party has a part one hit from gone, off otherwise. Driven
+        /// from Refresh because that is the one path every raid change goes through - a hit, a heal, an
+        /// extraction, a death - so the sound cannot fall out of step with the body-part bars.
+        /// </summary>
+        private void SyncHeartbeat(CharacterSession session, Expedition trip)
+        {
+            var critical = false;
+            if (trip != null && session.Repository != null)
+            {
+                foreach (var profileId in trip.Party)
+                {
+                    try
+                    {
+                        var member = session.Repository.Load(profileId);
+                        // A corpse has no pulse: the heartbeat is for someone still standing there bleeding.
+                        if (member.Status != CharacterSheet.Dead
+                            && ProfileRules.CriticalParts(member).Count > 0)
+                        {
+                            critical = true;
+                            break;
+                        }
+                    }
+                    catch (StorageException)
+                    {
+                        // An unreadable member cannot be judged, and must not sound an alarm.
+                    }
+                }
+            }
+
+            AudioDirector.Heartbeat(critical);
+        }
+
+        /// <summary>
+        /// Total health of every member of a trip, read from the save files - an action writes those, not
+        /// this screen. Empty when there is no trip open yet (a launch cannot hurt anyone).
+        /// </summary>
+        private static Dictionary<string, int> PartyHealth(CharacterSession session, Expedition trip)
+        {
+            var health = new Dictionary<string, int>();
+            if (trip == null || session.Repository == null)
+            {
+                return health;
+            }
+
+            foreach (var profileId in trip.Party)
+            {
+                try
+                {
+                    health[profileId] = session.Repository.Load(profileId).Health;
+                }
+                catch (StorageException)
+                {
+                    // A member whose file cannot be read simply does not count as wounded.
+                }
+            }
+
+            return health;
+        }
+
+        /// <summary>Whether anyone in that snapshot is now below the health it was taken at.</summary>
+        private static bool PartyTookDamage(CharacterSession session, Dictionary<string, int> before)
+        {
+            if (session.Repository == null)
+            {
+                return false;
+            }
+
+            foreach (var pair in before)
+            {
+                try
+                {
+                    if (session.Repository.Load(pair.Key).Health < pair.Value)
+                    {
+                        return true;
+                    }
+                }
+                catch (StorageException)
+                {
+                    // Same as above: unreadable is not wounded.
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1402,6 +1507,7 @@ namespace Safehouse.UI
 
         /// <summary>Keeps a copy of the character first, so the trip it is about to start can be undone.</summary>
         private void Launch(CharacterSession session)        {
+            AudioDirector.Play(Sound.Click);
             try
             {
                 Snapshots(session).Save(session.Profile, Now(), "before-launch");

@@ -48,3 +48,11 @@ crashlytics-build.properties
 /local_data/
 /icon_cache/
 /[Aa]ssets/StreamingAssets/icons/
+
+# The two music beds are a ripped album, not ours to publish. The built-in synth is the fallback.
+/[Aa]ssets/StreamingAssets/audio/*.wav
+/[Aa]ssets/StreamingAssets/audio/*.wav.meta
+
+# docs/ is the working notes for whoever is driving the project: it names this machine's drive, save
+# folder and editor path. Local only - never commit it, or those paths end up on GitHub.
+/docs/
