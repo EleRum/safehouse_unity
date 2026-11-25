@@ -51,8 +51,13 @@
                     <ui:Label text="Both volumes are kept in PlayerPrefs. Drop audio/&lt;id&gt;.wav next to the game's data files to replace the built-in sounds." class="text-muted" style="font-size: 10px; white-space: normal; margin-top: 8px;" />
                 </ui:VisualElement>
 
-                <ui:VisualElement style="flex-grow: 1;" />
-                <ui:Label name="label-status" text="" class="text-muted" style="font-size: 11px; white-space: normal;" />
+                <ui:VisualElement class="card" style="padding: 10px 12px; margin-bottom: 10px;">
+                    <ui:Label text="QUIT" class="text-label" style="margin-bottom: 8px;" />
+                    <ui:Button name="button-exit" text="EXIT GAME" class="btn btn-outline" style="font-size: 12px; height: 30px;" />
+                    <ui:Label name="label-quit" text="Saves are written as you go; nothing is lost by quitting." class="text-muted" style="font-size: 10px; white-space: normal; margin-top: 8px;" />
+                </ui:VisualElement>
+
+                <ui:VisualElement style="flex-grow: 1;" />                <ui:Label name="label-status" text="" class="text-muted" style="font-size: 11px; white-space: normal;" />
             </sh:FacetedPanel>
         </ui:VisualElement>
     </ui:VisualElement>

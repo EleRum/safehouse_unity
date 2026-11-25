@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using Safehouse.Data;
 using UnityEngine;
@@ -16,6 +16,7 @@ namespace Safehouse.UI
         private Label _labelDataFolder;
         private Button _buttonOpenFolder;
         private Label _labelStatus;
+        private Button _buttonExit;
         private Slider _music;
         private Slider _sfx;
         private Label _labelMusic;
@@ -30,13 +31,14 @@ namespace Safehouse.UI
             _labelDataFolder = _root.Q<Label>("label-data-folder");
             _buttonOpenFolder = _root.Q<Button>("button-open-folder");
             _labelStatus = _root.Q<Label>("label-status");
+            _buttonExit = _root.Q<Button>("button-exit");
             BindAudio();
 
             _root.Q<Button>("navtab-character").clicked += () => ScreenNavigator.Go("character");
             _root.Q<Button>("navtab-gear").clicked += () => ScreenNavigator.Go("gear");
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
-            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
             var gmTab = _root.Q<Button>("navtab-gm");
             if (gmTab != null)
             {
@@ -44,6 +46,10 @@ namespace Safehouse.UI
             }
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             _buttonOpenFolder.clicked += OpenDataFolder;
+            if (_buttonExit != null)
+            {
+                _buttonExit.clicked += Quit;
+            }
 
             ScreenNavigator.Register("settings", Show, Hide);
             Hide();
@@ -52,6 +58,23 @@ namespace Safehouse.UI
         private void OnDisable()
         {
             ScreenNavigator.Unregister("settings");
+        }
+
+        /// <summary>
+        /// Leaves the game. Everything is written as it changes, so there is nothing to flush - but the sound is
+        /// stopped first, because a music bed that keeps playing after the window closes is the sort of thing
+        /// people remember.
+        /// </summary>
+        private static void Quit()
+        {
+            AudioDirector.Music(null);
+            AudioDirector.Ambience(false);
+
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
         public void Show()

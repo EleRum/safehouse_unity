@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Safehouse.Core;
@@ -171,7 +171,12 @@ namespace Safehouse.UI
             {
                 // Stored as a string: a PlayerPrefs float cannot hold a Unix timestamp to the minute.
                 var stamp = PlayerPrefs.GetString(EventRollKey, "");
-                var last = double.TryParse(stamp, out var parsed) ? parsed : 0.0;
+                // Parsed invariant: on a machine whose decimal separator is a comma, the stored "1730...0"
+                // read back as 0 and the cooldown reset itself every time.
+                var last = double.TryParse(stamp, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+                    ? parsed
+                    : 0.0;
                 if (last > 0.0 && Now - last < RandomEventCooldownSeconds)
                 {
                     return;

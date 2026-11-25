@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
+using UnityEngine;
 using Safehouse.Core;
 
 namespace Safehouse.Data
@@ -17,9 +18,10 @@ namespace Safehouse.Data
     {
         private const string FileName = "gm-quests.json";
 
-        public static string Folder => Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "..", "LocalLow",
-            "DefaultCompany", "Safehouse", "Safehouse", "quests");
+        // Same root as everything else the game writes: Application.persistentDataPath. The old version walked
+        // LocalApplicationData/".."/LocalLow/DefaultCompany/Safehouse by hand, which is Windows-only, breaks the
+        // moment the product name changes, and pointed somewhere else than the events file on the same machine.
+        public static string Folder => Path.Combine(Application.persistentDataPath, "Safehouse", "quests");
 
         public static string OverridePath => Path.Combine(Folder, FileName);
 
