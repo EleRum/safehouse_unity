@@ -7,11 +7,12 @@
                 <ui:Label text="SAFEHOUSE" class="text-heading" />
             </ui:VisualElement>
             <ui:Button text="CHARACTER" name="navtab-character" class="navtab navtab-active" />
+            <ui:Button text="SCENES" name="navtab-gm" class="navtab" />
             <ui:Button text="GEAR" name="navtab-gear" class="navtab" />
             <ui:Button text="HIDEOUT" name="navtab-hideout" class="navtab" />
             <ui:Button text="TRADERS" name="navtab-traders" class="navtab" />
             <ui:Button text="SCAVENGE" name="navtab-scavenge" class="navtab" />
-            <ui:Button text="QUESTS" name="navtab-quests" class="navtab" />
+            <ui:Button text="QUESTS" name="navtab-quests" class="navtab" />
             <ui:VisualElement style="flex-grow: 1;" />
             <ui:Button text="SETTINGS" name="navtab-settings" class="navtab" />
         </ui:VisualElement>

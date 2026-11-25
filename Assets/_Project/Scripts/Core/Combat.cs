@@ -109,7 +109,8 @@ namespace Safehouse.Core
         public Fighter(string characterId, string name, IReadOnlyDictionary<string, int> bodyParts,
             IReadOnlyDictionary<string, int> maxBodyParts, IReadOnlyDictionary<string, string[]> conditions,
             WeaponStats weapon, AmmoStats ammo, IReadOnlyDictionary<string, int> armorClasses, int healPool,
-            bool stopsLightBleed, bool stopsHeavyBleed, bool treatsFracture)
+            bool stopsLightBleed, bool stopsHeavyBleed, bool treatsFracture,
+            IReadOnlyDictionary<string, int> armorDurability = null)
         {
             CharacterId = characterId;
             Name = name;
@@ -124,6 +125,9 @@ namespace Safehouse.Core
             Weapon = weapon;
             Ammo = ammo;
             ArmorClasses = new Dictionary<string, int>(armorClasses);
+            ArmorDurability = armorDurability == null
+                ? new Dictionary<string, int>()
+                : new Dictionary<string, int>(armorDurability);
             HealPool = healPool;
             StopsLightBleed = stopsLightBleed;
             StopsHeavyBleed = stopsHeavyBleed;
@@ -138,6 +142,10 @@ namespace Safehouse.Core
         public WeaponStats Weapon { get; }
         public AmmoStats Ammo { get; }
         public Dictionary<string, int> ArmorClasses { get; }
+
+        /// <summary>How much life is left in the piece covering each part, 0-100. Worn by hits taken, not by
+        /// shots fired, so a vest that never gets hit stays whole.</summary>
+        public Dictionary<string, int> ArmorDurability { get; }
         public int HealPool { get; }
         public bool StopsLightBleed { get; }
         public bool StopsHeavyBleed { get; }
@@ -149,7 +157,7 @@ namespace Safehouse.Core
         public bool Fractured => Conditions.Values.Any(list => list.Contains("fracture"));
 
         public Fighter Copy() => new Fighter(CharacterId, Name, BodyParts, MaxBodyParts, Conditions,
-            Weapon, Ammo, ArmorClasses, HealPool, StopsLightBleed, StopsHeavyBleed, TreatsFracture);
+            Weapon, Ammo, ArmorClasses, HealPool, StopsLightBleed, StopsHeavyBleed, TreatsFracture, ArmorDurability);
     }
 
     public sealed class EncounterResult

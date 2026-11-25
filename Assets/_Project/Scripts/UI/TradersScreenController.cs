@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Safehouse.Core;
@@ -127,7 +127,12 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-gear").clicked += () => ScreenNavigator.Go("gear");
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
-            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            var gmTab = _root.Q<Button>("navtab-gm");
+            if (gmTab != null)
+            {
+                gmTab.clicked += () => ScreenNavigator.Go("gm");
+            }
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
 
             BuildTraderButtons();
@@ -749,6 +754,7 @@ namespace Safehouse.UI
             BuildStash();
             SelectStashItem(instanceId);
             SetStatus("");
+            AudioDirector.Play(Sound.Move); // rearranging the stash here is the same act as doing it on GEAR
         }
 
         // ---- the stash, to sell from ----

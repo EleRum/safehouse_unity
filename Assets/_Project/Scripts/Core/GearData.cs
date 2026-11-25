@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Safehouse.Core
 {
@@ -247,10 +248,18 @@ namespace Safehouse.Core
         }
 
         /// <summary>Which body parts are actually covered: a helmet protects the head, a vest the torso.</summary>
-        public Dictionary<string, int> ArmorClasses(IEnumerable<string> itemIds)
+        public Dictionary<string, int> ArmorClasses(IEnumerable<string> itemIds) =>
+            ArmorClasses(itemIds.Select(itemId => (ItemId: itemId, Durability: EquippedItem.MaxDurability)));
+
+        /// <summary>
+        /// The same, with wear taken into account: a vest at half durability protects at half its armour class,
+        /// and one worn to nothing protects not at all. This is what makes armour a consumable instead of a
+        /// permanent upgrade.
+        /// </summary>
+        public Dictionary<string, int> ArmorClasses(IEnumerable<(string ItemId, int Durability)> worn)
         {
             var classes = new Dictionary<string, int>();
-            foreach (var itemId in itemIds)
+            foreach (var (itemId, durability) in worn)
             {
                 if (itemId == null || !_equipment.TryGetValue(itemId, out var equip) || equip.ArmorClass <= 0)
                 {
@@ -260,11 +269,17 @@ namespace Safehouse.Core
                 var parts = equip.Slot == LoadoutSlots.Helmet
                     ? new[] { "head" }
                     : equip.Slot == LoadoutSlots.Armor ? new[] { "thorax", "stomach" } : new string[0];
+                var effective = (int)System.Math.Round(equip.ArmorClass * System.Math.Max(0, durability) / 100.0);
+                if (effective <= 0)
+                {
+                    continue;
+                }
+
                 foreach (var part in parts)
                 {
                     classes[part] = classes.TryGetValue(part, out var current)
-                        ? System.Math.Max(current, equip.ArmorClass)
-                        : equip.ArmorClass;
+                        ? System.Math.Max(current, effective)
+                        : effective;
                 }
             }
 

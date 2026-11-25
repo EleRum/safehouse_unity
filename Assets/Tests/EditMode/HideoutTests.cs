@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -321,7 +321,7 @@ namespace Safehouse.Tests
             var upgraded = ProfileMigrations.Upgrade(document);
             var profile = ProfileSerializer.FromJson(upgraded);
 
-            Assert.AreEqual(9, upgraded["schema_version"].Value<int>());
+            Assert.AreEqual(10, upgraded["schema_version"].Value<int>());
             Assert.AreEqual(1, profile.Room.Level);
             Assert.AreEqual("", profile.Gundog.MainClass);
         }

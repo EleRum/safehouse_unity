@@ -7,6 +7,7 @@
                 <ui:Label text="SAFEHOUSE" class="text-heading" />
             </ui:VisualElement>
             <ui:Button text="CHARACTER" name="navtab-character" class="navtab" />
+            <ui:Button text="SCENES" name="navtab-gm" class="navtab" />
             <ui:Button text="GEAR" name="navtab-gear" class="navtab" />
             <ui:Button text="HIDEOUT" name="navtab-hideout" class="navtab" />
             <ui:Button text="TRADERS" name="navtab-traders" class="navtab" />

@@ -22,7 +22,7 @@
       "category": "Ammo",
       "width": 1,
       "height": 1,
-      "base_value": 1000,
+      "base_value": 8000,
       "rarity": "Common",
       "weight": 0.01,
       "tags": [
@@ -2910,7 +2910,7 @@
       "category": "Food",
       "width": 1,
       "height": 1,
-      "base_value": 24943,
+      "base_value": 4200,
       "rarity": "Uncommon",
       "weight": 0.44,
       "tags": [
@@ -3030,7 +3030,7 @@
       "category": "Building materials",
       "width": 1,
       "height": 1,
-      "base_value": 2499,
+      "base_value": 700,
       "rarity": "Common",
       "weight": 0.1,
       "tags": [
@@ -3060,7 +3060,7 @@
       "category": "Building materials",
       "width": 1,
       "height": 1,
-      "base_value": 11000,
+      "base_value": 300,
       "rarity": "Uncommon",
       "weight": 0.4,
       "tags": [
@@ -3075,7 +3075,7 @@
       "category": "Building materials",
       "width": 1,
       "height": 1,
-      "base_value": 8700,
+      "base_value": 250,
       "rarity": "Common",
       "weight": 0.4,
       "tags": [
@@ -20631,7 +20631,7 @@
       "category": "Household goods",
       "width": 1,
       "height": 1,
-      "base_value": 8800,
+      "base_value": 700,
       "rarity": "Common",
       "weight": 0.07,
       "tags": [
@@ -25088,7 +25088,7 @@
       "category": "Drinks",
       "width": 1,
       "height": 2,
-      "base_value": 200000,
+      "base_value": 30000,
       "rarity": "Legendary",
       "weight": 1.2,
       "tags": [

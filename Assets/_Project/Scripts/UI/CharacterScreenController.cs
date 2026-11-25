@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Safehouse.Core;
@@ -69,7 +69,12 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-gear").clicked += () => ScreenNavigator.Go("gear");
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
-            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            var gmTab = _root.Q<Button>("navtab-gm");
+            if (gmTab != null)
+            {
+                gmTab.clicked += () => ScreenNavigator.Go("gm");
+            }
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             ScreenNavigator.Register("character", Show, Hide);
@@ -348,7 +353,9 @@ namespace Safehouse.UI
                     }
                 }
 
-                var sheet = new GundogSheet(Gundog.Abilities.ToDictionary(stat => stat.StatId, stat => Gundog.AbilityDefault),
+                // The sheet's eight are the profile's eight now (schema 10), so the card is filled from the
+                // scores the player just spent points on instead of eight fives that contradict them.
+                var sheet = new GundogSheet(_abilities.ToDictionary(pair => pair.Key, pair => pair.Value),
                     _main, _sub, _arts.OrderBy(id => id, StringComparer.Ordinal),
                     _career.Select(field => field.value.Trim()).ToList(), _reward, _movement, _durability,
                     Text("rank"), Text("language"), Text("occupation"), Text("era"));

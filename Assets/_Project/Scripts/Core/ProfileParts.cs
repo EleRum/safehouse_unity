@@ -53,9 +53,16 @@ namespace Safehouse.Core
             "height", "weight", "hair_color", "eye_color", "skin_color",
         };
 
+        /// <summary>
+        /// The character's eight attributes, and they are the Gundog sheet's eight: same ids, same order.
+        /// They used to be a second, parallel set (strength, dexterity, intelligence, charisma, constitution,
+        /// looks) left over from the Python build, which meant the game stored two vocabularies for the same
+        /// idea and nothing could agree which was real. Schema 10 renames the saved keys to these
+        /// (ProfileMigrations.V9ToV10), so the sheet and the profile are one list now.
+        /// </summary>
         public static readonly IReadOnlyList<string> Abilities = new[]
         {
-            "strength", "dexterity", "agility", "intelligence", "sense", "charisma", "constitution", "looks",
+            "muscle", "finesse", "agility", "sense", "perception", "charm", "build", "humanity",
         };
 
         public const int AbilityBase = 5;

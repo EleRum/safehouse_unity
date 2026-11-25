@@ -22,7 +22,7 @@
       "facility_level": 2,
       "name": "Salewa first aid kit",
       "category": "crafting",
-      "duration_hours": 1.0,
+      "duration_hours": 3.0,
       "inputs": [
         { "item_id": "aseptic-bandage", "count": 2 },
         { "item_id": "analgin-painkillers", "count": 1 }
@@ -51,7 +51,7 @@
       "facility_level": 1,
       "name": "5.56x45mm M855 ammo pack (50 pcs)",
       "category": "crafting",
-      "duration_hours": 1.5,
+      "duration_hours": 4.0,
       "inputs": [
         { "item_id": "bolts", "count": 1 },
         { "item_id": "screw-nuts", "count": 1 }
@@ -94,8 +94,8 @@
       "facility_id": "water_collector",
       "facility_level": 1,
       "name": "Bottle of water (0.6L)",
-      "category": "crafting",
-      "duration_hours": 4.0,
+      "category": "repeating",
+      "duration_hours": 6.0,
       "inputs": [],
       "outputs": [
         { "item_id": "bottle-of-water-06l", "count": 1 }

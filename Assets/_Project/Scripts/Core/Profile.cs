@@ -1,3 +1,4 @@
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -14,7 +15,7 @@ namespace Safehouse.Core
     /// </summary>
     public sealed class Profile
     {
-        public const int SchemaVersion = 9;
+        public const int SchemaVersion = 12;
 
         public const int DefaultMoney = 500_000;
         public const int DefaultStashWidth = 10;
@@ -37,7 +38,8 @@ namespace Safehouse.Core
             IReadOnlyDictionary<string, string> bio,
             IReadOnlyDictionary<string, int> abilities,
             PersonalRoom room = null,
-            GundogSheet gundog = null)
+            GundogSheet gundog = null,
+            IEnumerable<string> flags = null)
         {
             ProfileId = Validate.Identifier(profileId, "profile_id", instance: true);
             DisplayName = Validate.Text(displayName, "Character name", CharacterSheet.MaxNameLength).Trim();
@@ -75,6 +77,28 @@ namespace Safehouse.Core
             Abilities = CheckAbilities(abilities);
             Room = room ?? PersonalRoom.Default;
             Gundog = gundog ?? GundogSheet.Blank;
+            Flags = CheckFlags(flags);
+        }
+
+        private static IReadOnlyList<string> CheckFlags(IEnumerable<string> flags)
+        {
+            var list = (flags ?? Enumerable.Empty<string>())
+                .Where(flag => !string.IsNullOrWhiteSpace(flag))
+                .Select(flag => flag.Trim())
+                .Distinct()
+                .OrderBy(flag => flag, StringComparer.Ordinal)
+                .ToList();
+            if (list.Count > 400)
+            {
+                throw new ValidationException("Too many story flags on one character.");
+            }
+
+            foreach (var flag in list.Where(flag => flag.Length > 60))
+            {
+                throw new ValidationException($"Story flag too long: '{flag}'.");
+            }
+
+            return list;
         }
 
         public string ProfileId { get; }
@@ -94,6 +118,13 @@ namespace Safehouse.Core
 
         /// <summary>Gundog Revised sheet. Not read by expeditions.</summary>
         public GundogSheet Gundog { get; }
+
+        /// <summary>
+        /// Story flags this character carries: "mil1-helped", "shot-the-collector". An event or a single choice can
+        /// require them, so a scene written later can depend on what was chosen earlier - that is the only way a
+        /// branch remembers you. Sorted and de-duplicated, so two saves of the same history are identical.
+        /// </summary>
+        public IReadOnlyList<string> Flags { get; }
 
         /// <summary>Total hit points: derived from the body parts, never stored.</summary>
         public int Health => BodyParts.Values.Sum();
@@ -121,12 +152,12 @@ namespace Safehouse.Core
             IReadOnlyDictionary<string, IReadOnlyList<string>> conditions = null,
             IReadOnlyDictionary<string, int> abilities = null,
             IReadOnlyDictionary<string, string> bio = null,
-            GundogSheet gundog = null) =>
+            GundogSheet gundog = null, IEnumerable<string> flags = null) =>
             new Profile(ProfileId, DisplayName, money ?? Money,
                 stash ?? Stash, rig ?? Rig, backpack ?? Backpack,
                 traders ?? Traders, status ?? Status, loadout ?? Loadout,
                 bodyParts ?? BodyParts, conditions ?? Conditions, bio ?? Bio, abilities ?? Abilities,
-                room ?? Room, gundog ?? Gundog);
+                room ?? Room, gundog ?? Gundog, flags ?? Flags);
 
         private static IReadOnlyDictionary<string, int> CheckBodyParts(IReadOnlyDictionary<string, int> parts)
         {

@@ -27,7 +27,7 @@ namespace Safehouse.UI
         /// <summary>Every id <see cref="Build"/> knows, which is also the set of file names it looks for.</summary>
         public static readonly IReadOnlyList<string> Ids = new[]
         {
-            "click", "telegraph", "error", "move", "equip", "trash", "case", "heal", "trade", "shot",
+            "click", "error", "move", "equip", "trash", "case", "heal", "trade", "shot",
             "heartbeat", "death", "extract", "menu", "raid",
         };
 
@@ -38,13 +38,6 @@ namespace Safehouse.UI
             {
                 // A dry toggle: no pitch, just something being pressed and let go.
                 case "click": return Render(0.09, (t, i) => Key(t, i, 1500) * 0.42);
-
-                // The telegraph key - dit, dit, dah, a real key's rhythm rather than three beeps. This is
-                // what the tab bar plays, so moving between screens sounds like a field station.
-                case "telegraph": return Render(0.46, (t, i) => Key(t, i, 1750) * 0.30
-                                                              + Key(t - 0.085, i, 1620) * 0.40
-                                                              + Key(t - 0.175, i, 1820) * 0.46
-                                                              + Key(t - 0.245, i, 1820) * 0.36);
 
                 // A squelch bursting out of a handset: band-shaped noise over a low body, no "error" bleep.
                 case "error": return Render(0.38, (t, i) => Noise(i, 23) * (0.45 + 0.55 * Math.Sin(TwoPi * 170 * t))

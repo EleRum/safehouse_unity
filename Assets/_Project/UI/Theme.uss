@@ -137,6 +137,12 @@
     color: rgb(200, 80, 60);
 }
 
+/* A disabled button keeps its colour otherwise - QUESTS showed a gold CLAIM nobody could press, which reads
+   as a bug rather than as a rule. */
+.btn:disabled {
+    opacity: 0.4;
+}
+
 .btn-disabled {
     background-color: rgb(20, 23, 27);
     border-width: 1px;
@@ -838,4 +844,323 @@
 .unity-text-element.unity-base-text-field__input,
 .unity-text-input .unity-text-element {
     color: rgb(230, 233, 236);
+}
+
+/* ---- crafting page (HIDEOUT > CRAFTING) ---- */
+
+/* Same two faces the rest of the hideout uses: Oswald for anything that reads as a heading or a button, the
+   monospace for numbers and the read-only meta lines. Without naming them a label falls back to Unity's default
+   font and looks like it came from another program. */
+.crafting-header {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgb(120, 132, 143);
+    margin-bottom: 12px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+
+.crafting-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 8px;
+    margin-bottom: 2px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgb(35, 41, 49);
+}
+
+.crafting-row:hover {
+    background-color: rgb(23, 27, 33);
+}
+
+.crafting-row-left {
+    flex-direction: column;
+    flex-grow: 1;
+    margin-right: 12px;
+}
+
+.crafting-row-name {
+    font-size: 15px;
+    color: rgb(214, 220, 227);
+    letter-spacing: 0.4px;
+    margin-bottom: 5px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+
+.crafting-row-meta {
+    font-size: 12px;
+    letter-spacing: 0.2px;
+    color: rgb(120, 132, 143);
+    white-space: normal;
+    -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf");
+    -unity-font-style: normal;
+}
+
+.crafting-row-time {
+    font-size: 12px;
+    letter-spacing: 0.2px;
+    color: rgb(217, 164, 65);
+    margin-top: 4px;
+    -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf");
+    -unity-font-style: normal;
+}
+
+/* A material the stash cannot cover: the whole stack is red, not just the count. */
+.crafting-missing {
+    color: rgb(200, 80, 60);
+}
+
+.crafting-have {
+    color: rgb(111, 158, 92);
+}
+
+.crafting-tab {
+    height: 26px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    padding-left: 12px;
+    padding-right: 12px;
+    margin-right: 6px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+
+/* The tabs are small outline buttons and the stock hover was too quiet to notice: light the whole pill. */
+.crafting-tab:hover {
+    background-color: rgb(33, 38, 45);
+    border-color: rgb(120, 132, 143);
+    color: rgb(230, 233, 236);
+}
+
+.crafting-tab.btn-primary:hover {
+    background-color: rgb(232, 186, 104);
+    color: rgb(20, 23, 26);
+}
+
+.crafting-row-btn {
+    height: 26px;
+    min-width: 96px;
+    font-size: 12px;
+    letter-spacing: 0.8px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+/* ---- durability: a 3 px bar under the piece that can wear out ---- */
+
+.slot-wear {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 4px;
+    height: 3px;
+    background-color: rgb(35, 41, 49);
+}
+
+.slot-wear-fill {
+    height: 3px;
+    background-color: rgb(111, 158, 92);
+}
+/* ---- a node where the story is waiting: green, so the player can choose to walk there ---- */
+
+.raid-ring-story {
+    position: absolute;
+    left: -8px;
+    top: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 30px;
+    border-width: 2px;
+    border-color: rgb(111, 158, 92);
+    background-color: rgba(111, 158, 92, 0.12);
+}
+/* ---- text inputs: the default field is white with white text, which is unreadable on this theme ---- */
+
+/* The field has to read as a field: a lighter fill than the panel and a border you can actually see. The first
+   version used a border one shade off the background and it looked like plain text. */
+.unity-text-field__input {
+    background-color: rgb(30, 35, 42);
+    color: rgb(232, 236, 240);
+    border-width: 1px;
+    border-color: rgb(82, 94, 108);
+    border-radius: 2px;
+    padding: 4px 6px;
+    --unity-cursor-color: rgb(232, 196, 105);
+    --unity-cursor-width: 2px;
+    --unity-selection-color: rgba(217, 164, 65, 0.35);
+    font-size: 13px;
+    -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf");
+    -unity-font-style: normal;
+}
+
+.unity-text-field__input:hover {
+    border-color: rgb(232, 186, 104);
+    background-color: rgb(34, 40, 48);
+}
+
+.unity-text-field__input:focus {
+    border-color: rgb(232, 186, 104);
+    background-color: rgb(36, 42, 50);
+}
+
+.unity-base-text-field__input {
+    background-color: rgb(30, 35, 42);
+    color: rgb(232, 236, 240);
+    border-color: rgb(82, 94, 108);
+    --unity-cursor-color: rgb(232, 196, 105);
+    --unity-cursor-width: 2px;
+}
+
+/* the caret sits on the text element inside the field: both layers get it, or it stays invisible on one */
+.unity-text-field__input .unity-text-element {
+    --unity-cursor-color: rgb(232, 196, 105);
+    --unity-cursor-width: 2px;
+}
+
+/* the frame around the text area, in case the runtime builds the other variant */
+.unity-text-field {
+    border-width: 1px;
+    border-color: rgb(82, 94, 108);
+    border-radius: 2px;
+    --unity-cursor-color: rgb(232, 196, 105);
+    --unity-cursor-width: 2px;
+}
+
+.unity-text-field:focus {
+    border-color: rgb(232, 186, 104);
+}
+
+/* placeholder text: dim, not the default grey-on-white */
+.unity-text-field__input .unity-text-element {
+    color: rgb(226, 231, 236);
+}
+
+.unity-toggle__label {
+    font-size: 11px;
+    color: rgb(180, 188, 198);
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+
+.gm-caption {
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: rgb(120, 132, 143);
+    margin-top: 8px;
+    -unity-font-definition: url("Fonts/Oswald/Oswald-Medium.ttf");
+    -unity-font-style: normal;
+}
+/* ---- checkboxes: the stock one is a white square on a light border ---- */
+
+.unity-toggle__checkbox {
+    width: 18px;
+    height: 18px;
+    background-color: rgb(18, 21, 26);
+    border-width: 1px;
+    border-color: rgb(58, 68, 80);
+    border-radius: 2px;
+}
+
+.unity-toggle__checkbox:hover {
+    border-color: rgb(120, 132, 143);
+}
+
+.unity-toggle__checkbox--checked .unity-toggle__checkmark,
+.unity-toggle__checkmark {
+    background-color: rgb(217, 164, 65);
+}
+
+.unity-toggle__checkbox--checked {
+    border-color: rgb(217, 164, 65);
+}
+/* ---- dropdowns: the closed field and the popup list Unity builds for it ---- */
+
+.unity-base-popup-field__input,
+.unity-popup-field__input,
+.unity-base-dropdown-field__input {
+    background-color: rgb(30, 35, 42);
+    color: rgb(232, 236, 240);
+    border-width: 1px;
+    border-color: rgb(82, 94, 108);
+    border-radius: 2px;
+    padding: 4px 6px;
+    font-size: 13px;
+}
+
+.unity-base-popup-field__input:hover,
+.unity-popup-field__input:hover {
+    border-color: rgb(232, 186, 104);
+}
+
+.unity-base-popup-field__arrow,
+.unity-popup-field__arrow {
+    background-color: rgb(217, 164, 65);
+    -unity-background-image-tint-color: rgb(217, 164, 65);
+}
+
+/* the menu itself: a floating panel, not a white sheet */
+.unity-base-dropdown {
+    background-color: rgb(24, 28, 34);
+    border-width: 1px;
+    border-color: rgb(82, 94, 108);
+    border-radius: 2px;
+}
+
+.unity-base-dropdown__container {
+    background-color: rgb(24, 28, 34);
+    border-width: 1px;
+    border-color: rgb(82, 94, 108);
+    padding: 2px;
+}
+
+.unity-base-dropdown__item {
+    background-color: rgb(24, 28, 34);
+    color: rgb(214, 220, 227);
+    font-size: 13px;
+    padding: 4px 8px;
+    border-width: 0;
+}
+
+.unity-base-dropdown__item:hover {
+    background-color: rgb(40, 46, 54);
+    color: rgb(240, 243, 246);
+}
+
+.unity-base-dropdown__item--active,
+.unity-base-dropdown__item--checked {
+    color: rgb(217, 164, 65);
+    background-color: rgb(30, 35, 42);
+}
+
+.unity-base-dropdown__label {
+    color: rgb(214, 220, 227);
+}
+/* the read-only value shown inside an option picker: looks like a field, is not one */
+.gm-value {
+    font-size: 15px;
+    background-color: rgb(30, 35, 42);
+    color: rgb(232, 236, 240);
+    border-width: 1px;
+    border-color: rgb(82, 94, 108);
+    border-radius: 2px;
+    -unity-font-definition: url("Fonts/JetBrainsMono/JetBrainsMono-Regular.ttf");
+    -unity-font-style: normal;
+}
+/* ---- the GM picker: a floating panel over the screen, never a reflow of the form ---- */
+
+.gm-picker-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.gm-picker {
+    width: 520px;
+    max-height: 70%;
+    padding: 16px 18px;
 }

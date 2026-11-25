@@ -205,6 +205,60 @@ namespace Safehouse.Core
             return hideout.WithFuel(remaining);
         }
 
+        /// <summary>
+        /// Fuel a can is worth, in generator fuel units. One hour of a one-person hideout at generator level 1
+        /// costs ten units, so a metal tank is six hours of light. Ids are the ones in items.json.
+        /// </summary>
+        public static readonly IReadOnlyDictionary<string, int> FuelUnits = new Dictionary<string, int>
+        {
+            ["dry-fuel"] = 40,
+            ["metal-fuel-tank"] = 60,
+            ["expeditionary-fuel-tank"] = 45,
+            ["special-40-degree-fuel"] = 100,
+        };
+
+        /// <summary>Why this item cannot be poured into the generator, or null when it can.</summary>
+        public static string RefuelError(Account account, Profile profile, string instanceId)
+        {
+            if (account == null || profile == null)
+            {
+                return "Open a character first.";
+            }
+
+            if (account.Hideout.Fuel >= HideoutLimits.MaxFuel)
+            {
+                return "The generator is already full.";
+            }
+
+            var carried = profile.Stash.Stash.FirstOrDefault(item => item.InstanceId == instanceId);
+            if (carried == null)
+            {
+                return "That item is not in the stash.";
+            }
+
+            return FuelUnits.ContainsKey(carried.ItemId) ? null : "That is not fuel.";
+        }
+
+        /// <summary>
+        /// Empties one can into the generator: the item leaves the stash and the fuel level goes up. Until this
+        /// existed the generator only ever ran down - a hideout eventually went dark and no recipe could start.
+        /// </summary>
+        public static (Profile Profile, Account Account, int Units) Refuel(Account account, Profile profile,
+            string instanceId, IReadOnlyDictionary<string, ItemDefinition> catalog)
+        {
+            var error = RefuelError(account, profile, instanceId);
+            if (error != null)
+            {
+                throw new ValidationException(error);
+            }
+
+            var can = profile.Stash.Stash.First(item => item.InstanceId == instanceId);
+            var units = FuelUnits[can.ItemId];
+            var fuelled = Math.Min(HideoutLimits.MaxFuel, account.Hideout.Fuel + units);
+            var paid = profile.With(stash: InventoryRules.RemoveItems(profile.Stash, catalog, can.ItemId, 1));
+            return (paid, account.With(hideout: account.Hideout.WithFuel(fuelled)), units);
+        }
+
         /// <summary>Numeric effect value at a facility's current level, or the default if missing/not built.</summary>
         public static int IntEffect(HideoutDefinition definition, Hideout hideout, string facilityId,
             string effectKey, int defaultValue = 0)

@@ -30,7 +30,7 @@ namespace Safehouse.Core
                 return "A job for this recipe is already running.";
             }
 
-            if (recipe.Category == RecipeCategory.Repeating)
+            if (recipe.Category == RecipeCategory.Repeating && IsBitcoinFarm(recipe))
             {
                 var maxSlots = HideoutRules.IntEffect(definition, account.Hideout, "bitcoin_farm", "bitcoin_slots");
                 if (gpuCount <= 0 || gpuCount > maxSlots)
@@ -74,7 +74,7 @@ namespace Safehouse.Core
             }
 
             Profile paidProfile;
-            if (recipe.Category == RecipeCategory.Repeating)
+            if (recipe.Category == RecipeCategory.Repeating && IsBitcoinFarm(recipe))
             {
                 paidProfile = profile.With(stash: InventoryRules.RemoveItems(profile.Stash, catalog, "graphics-card", gpuCount));
             }
@@ -91,9 +91,9 @@ namespace Safehouse.Core
 
         /// <summary>The duration of this job in hours, after applying facility effects.</summary>
         public static double Duration(RecipeDefinition recipe, HideoutDefinition definition, Hideout hideout,
-            int gpuCount = 0)
+            int gpuCount = 0, double characterSpeed = 1.0)
         {
-            if (recipe.Category == RecipeCategory.Repeating)
+            if (recipe.Category == RecipeCategory.Repeating && IsBitcoinFarm(recipe))
             {
                 var rate = HideoutRules.DoubleEffect(definition, hideout, "bitcoin_farm", "bitcoin_per_hour_per_gpu");
                 if (rate <= 0.0 || gpuCount <= 0)
@@ -106,21 +106,37 @@ namespace Safehouse.Core
 
             var speed = HideoutRules.DoubleEffect(definition, hideout, "illumination", "crafting_speed_multiplier");
             speed = speed <= 0.0 ? 1.0 : speed;
+            // The character's own hands on top of the room's lighting. The Bitcoin farm returns above and is
+            // deliberately left alone, the same way Tarkov's Crafting skill excludes it. A passive collector
+            // (the water collector, which is also repeating) has no hands in it either.
+            if (recipe.Category != RecipeCategory.Repeating)
+            {
+                speed *= characterSpeed <= 0.0 ? 1.0 : characterSpeed;
+            }
+
             return recipe.DurationHours * speed;
         }
 
+        /// <summary>
+        /// The one repeating recipe that consumes hardware instead of material. Everything else that repeats is a
+        /// passive collector: it needs no graphics cards, and its cycle is its own duration.
+        /// </summary>
+        private static bool IsBitcoinFarm(RecipeDefinition recipe) =>
+            recipe.FacilityId == "bitcoin_farm";
+
         /// <summary>True when the job is complete and can be collected.</summary>
         public static bool IsReady(RecipeDefinition recipe, ProductionJob job, HideoutDefinition definition,
-            Hideout hideout, double now)
+            Hideout hideout, double now, double characterSpeed = 1.0)
         {
-            return now >= job.StartTime + Duration(recipe, definition, hideout, job.GpuCount) * 3600.0;
+            return now >= job.StartTime
+                   + Duration(recipe, definition, hideout, job.GpuCount, characterSpeed) * 3600.0;
         }
 
         /// <summary>Progress from 0 to 1.</summary>
         public static double Progress(RecipeDefinition recipe, ProductionJob job, HideoutDefinition definition,
-            Hideout hideout, double now)
+            Hideout hideout, double now, double characterSpeed = 1.0)
         {
-            var total = Duration(recipe, definition, hideout, job.GpuCount) * 3600.0;
+            var total = Duration(recipe, definition, hideout, job.GpuCount, characterSpeed) * 3600.0;
             if (total <= 0.0)
             {
                 return 1.0;
@@ -137,14 +153,22 @@ namespace Safehouse.Core
             Profile profile, Account account, HideoutDefinition definition, RecipeBook recipes,
             IReadOnlyDictionary<string, ItemDefinition> catalog, double now, Random random)
         {
-            if (!IsReady(recipe, job, definition, account.Hideout, now))
+            var speed = AbilityEffects.CraftSpeed(profile);
+            if (!IsReady(recipe, job, definition, account.Hideout, now, speed))
             {
                 throw new ValidationException("This job is not ready yet.");
             }
 
-            var outputs = recipe.Category == RecipeCategory.Random
+            var outputStack = recipe.Category == RecipeCategory.Random
                 ? PickLoot(recipes, definition, account.Hideout, recipe.OutputTableId, random)
                 : recipe.Outputs.ToList();
+
+            // A steady hand sometimes gets one more out of the same materials. Tarkov has no equivalent, so this
+            // is the sheet's own little reward for finesse; the recipe's own time is already shorter above.
+            var bonus = AbilityEffects.CraftBonus(profile);
+            var outputs = bonus > 0 && outputStack.Count > 0 && random.Next(100) < bonus
+                ? new List<RecipeStack>(outputStack) { new RecipeStack(outputStack[0].ItemId, 1) }
+                : outputStack;
 
             var withOutputs = outputs.Aggregate(profile, (current, stack) =>
                 current.With(stash: InventoryRules.AddItems(current.Stash, catalog, stack.ItemId, stack.Count)));
@@ -152,7 +176,7 @@ namespace Safehouse.Core
             var remaining = account.ProductionJobs.Where(j => j != job).ToList();
             if (recipe.IsRepeating)
             {
-                var cycleSeconds = Duration(recipe, definition, account.Hideout, job.GpuCount) * 3600.0;
+                var cycleSeconds = Duration(recipe, definition, account.Hideout, job.GpuCount, speed) * 3600.0;
                 var nextStart = job.StartTime + cycleSeconds;
                 remaining.Add(new ProductionJob(job.RecipeId, nextStart, job.CharacterId, job.GpuCount));
             }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
@@ -43,11 +43,11 @@ namespace Safehouse.Data
             new Dictionary<int, Func<JObject, JObject>>
             {
                 [1] = V1ToV2, [2] = V2ToV3, [3] = V3ToV4, [4] = V4ToV5, [5] = V5ToV6, [6] = V6ToV7, [7] = V7ToV8,
-                [8] = V8ToV9,
+                [8] = V8ToV9, [9] = V9ToV10, [10] = V10ToV11, [11] = V11ToV12,
             };
 
         /// <summary>
-        /// Upgrades a copy of the document to schema 9. Anything this version cannot upgrade - not an object,
+        /// Upgrades a copy of the document to the current schema (10). Anything this version cannot upgrade - not an object,
         /// a version it does not know, or a newer one - is returned unchanged, so reading it reports the
         /// problem instead of guessing.
         /// </summary>
@@ -218,6 +218,80 @@ namespace Safehouse.Data
                 ["occupation"] = "",
                 ["era"] = "",
             };
+            return raw;
+        }
+
+        /// <summary>
+        /// The eight attributes become the Gundog sheet's eight, because having two vocabularies for the same
+        /// idea was a trap: the profile said strength and the sheet said muscle, and nothing said which one
+        /// was real. The scores come across unchanged, in the same order.
+        /// </summary>
+        private static JObject V9ToV10(JObject raw)
+        {
+            var old = raw["abilities"] as JObject;
+            if (old != null)
+            {
+                var renamed = new JObject();
+                foreach (var ability in CharacterSheet.Abilities)
+                {
+                    var was = V9Names.TryGetValue(ability, out var legacy) ? legacy : ability;
+                    var score = old[was] ?? old[ability];
+                    renamed[ability] = score != null ? score.DeepClone() : CharacterSheet.AbilityBase;
+                }
+
+                raw["abilities"] = renamed;
+            }
+
+            raw["schema_version"] = 10;
+            return raw;
+        }
+
+        /// <summary>
+        /// Worn gear gets durability. Old files had none because nothing could wear out: every worn piece starts
+        /// whole, which is exactly what it was.
+        /// </summary>
+        private static JObject V10ToV11(JObject raw)
+        {
+            if (raw["loadout"] is JArray loadout)
+            {
+                foreach (var entry in loadout.OfType<JObject>())
+                {
+                    if (entry["durability"] == null)
+                    {
+                        entry["durability"] = EquippedItem.MaxDurability;
+                    }
+                }
+            }
+
+            raw["schema_version"] = 11;
+            return raw;
+        }
+
+        /// <summary>schema 9's key for each schema 10 attribute.</summary>
+        private static readonly IReadOnlyDictionary<string, string> V9Names = new Dictionary<string, string>
+        {
+            ["muscle"] = "strength",
+            ["finesse"] = "dexterity",
+            ["agility"] = "agility",
+            ["sense"] = "sense",
+            ["perception"] = "intelligence",
+            ["charm"] = "charisma",
+            ["build"] = "constitution",
+            ["humanity"] = "looks",
+        };
+
+        /// <summary>
+        /// Story flags. A character written before them simply has none: their history was never recorded, and
+        /// pretending otherwise would let a later scene think they made a choice they never made.
+        /// </summary>
+        private static JObject V11ToV12(JObject raw)
+        {
+            raw["schema_version"] = 12;
+            if (raw["flags"] == null)
+            {
+                raw["flags"] = new JArray();
+            }
+
             return raw;
         }
 

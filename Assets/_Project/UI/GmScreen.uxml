@@ -1,0 +1,46 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:sh="Safehouse.UI.Chrome">
+    <ui:Style src="Theme.uss" />
+
+    <!--
+      The GM's scene table: the same top bar and the same panels as the other screens, so it reads as part of the
+      game rather than a tool bolted onto it. Left column lists the scenes, right column is the form.
+    -->
+    <ui:VisualElement name="gm-root" class="gear-root" style="flex-direction: column; font-size: 16px;">
+
+        <!-- TOP BAR -->
+        <ui:VisualElement class="bar bar-top">
+            <ui:VisualElement style="flex-direction: row; align-items: center; margin-right: 22px;">
+                <ui:Label text="SAFEHOUSE" class="text-heading" />
+            </ui:VisualElement>
+            <ui:Button text="CHARACTER" name="navtab-character" class="navtab" />
+            <ui:Button text="SCENES" name="navtab-gm" class="navtab navtab-active" />
+            <ui:Button text="GEAR" name="navtab-gear" class="navtab" />
+            <ui:Button text="HIDEOUT" name="navtab-hideout" class="navtab" />
+            <ui:Button text="TRADERS" name="navtab-traders" class="navtab" />
+            <ui:Button text="SCAVENGE" name="navtab-scavenge" class="navtab" />
+            <ui:Button text="QUESTS" name="navtab-quests" class="navtab" />
+            <ui:VisualElement style="flex-grow: 1;" />
+            <ui:Button text="SETTINGS" name="navtab-settings" class="navtab" />
+        </ui:VisualElement>
+
+        <ui:VisualElement style="flex-direction: row; flex-grow: 1; padding: 18px 24px 16px 24px; min-height: 0;">
+
+            <!-- LEFT: the scene table -->
+            <sh:FacetedPanel style="width: 420px; flex-direction: column; padding: 14px; margin-right: 14px; min-height: 0;">
+                <ui:Label text="SCENES" class="text-section" style="margin-bottom: 8px; font-size: 18px;" />
+                <ui:Label name="gm-path" text="" class="text-muted" style="font-size: 12px; white-space: normal; margin-bottom: 8px;" />
+                <ui:ScrollView name="gm-scroll" style="flex-grow: 1;">
+                    <ui:VisualElement name="gm-list" style="flex-direction: column;" />
+                </ui:ScrollView>
+                <ui:Label name="gm-status" text="" class="text-muted" style="font-size: 14px; white-space: normal; margin-top: 10px;" />
+            </sh:FacetedPanel>
+
+            <!-- RIGHT: the form, built by the controller -->
+            <sh:FacetedPanel style="flex-grow: 1; flex-direction: column; padding: 14px; min-height: 0;">
+                <ui:ScrollView name="gm-form-scroll" style="flex-grow: 1;">
+                    <ui:VisualElement name="gm-form" style="flex-direction: column;" />
+                </ui:ScrollView>
+            </sh:FacetedPanel>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

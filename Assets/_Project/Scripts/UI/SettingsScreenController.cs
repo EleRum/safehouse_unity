@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using Safehouse.Data;
 using UnityEngine;
@@ -36,7 +36,12 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-gear").clicked += () => ScreenNavigator.Go("gear");
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
-            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            var gmTab = _root.Q<Button>("navtab-gm");
+            if (gmTab != null)
+            {
+                gmTab.clicked += () => ScreenNavigator.Go("gm");
+            }
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
             _buttonOpenFolder.clicked += OpenDataFolder;
 

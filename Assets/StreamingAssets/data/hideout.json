@@ -579,7 +579,7 @@
           "cost": { "money": 500000 },
           "effects": {
             "bitcoin_slots": 5,
-            "bitcoin_per_hour_per_gpu": 0.001
+            "bitcoin_per_hour_per_gpu": 0.02
           }
         },
         "2": {
@@ -590,7 +590,7 @@
           "cost": { "money": 1000000 },
           "effects": {
             "bitcoin_slots": 10,
-            "bitcoin_per_hour_per_gpu": 0.0015
+            "bitcoin_per_hour_per_gpu": 0.03
           }
         },
         "3": {
@@ -601,7 +601,7 @@
           "cost": { "money": 2000000 },
           "effects": {
             "bitcoin_slots": 25,
-            "bitcoin_per_hour_per_gpu": 0.002
+            "bitcoin_per_hour_per_gpu": 0.04
           }
         }
       }

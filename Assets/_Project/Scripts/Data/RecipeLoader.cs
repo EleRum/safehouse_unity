@@ -74,7 +74,12 @@ namespace Safehouse.Data
             var obj = token as JObject ?? throw new GameDataException("Each recipe must be an object.");
             var category = ReadCategory(Str(obj["category"], "category"));
 
-            var durationHours = category == RecipeCategory.Repeating ? 0.0 : Double(obj["duration_hours"], "duration_hours");
+            // Repeating recipes keep their own duration now: a passive collector (the water collector) cycles by it.
+        // The Bitcoin farm simply leaves the field out - its cycle comes from the GPUs and the rate instead.
+        var durationToken = obj["duration_hours"];
+        var durationHours = durationToken == null || durationToken.Type == JTokenType.Null
+            ? 0.0
+            : Double(durationToken, "duration_hours");
 
             return new RecipeDefinition(
                 Str(obj["recipe_id"], "recipe_id"),

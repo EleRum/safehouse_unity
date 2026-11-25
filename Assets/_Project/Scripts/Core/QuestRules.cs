@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -18,7 +18,8 @@ namespace Safehouse.Core
         public static bool RequiresMet(QuestDefinition definition, QuestLog log) =>
             definition.Requires.All(id => log.Claimed(id));
 
-        public static string StatusOf(QuestDefinition definition, QuestLog log)
+        public static string StatusOf(QuestDefinition definition, QuestLog log,
+            IReadOnlyCollection<string> flags = null, Profile profile = null)
         {
             var entry = log.Get(definition.QuestId);
             if (entry.Claimed)
@@ -31,13 +32,37 @@ namespace Safehouse.Core
                 return QuestStatus.Locked;
             }
 
+            // An event quest is finished when the scene it names has been played, and that is recorded once, on
+            // the character, by the scene itself - not by a counter some screen remembered to bump.
+            if (definition.Objective.Kind == QuestObjectiveKinds.Event
+                && definition.Objective.ItemId != null)
+            {
+                var seen = flags != null && flags.Contains(EventRules.SeenFlag(definition.Objective.ItemId));
+                return seen ? QuestStatus.Done : QuestStatus.Open;
+            }
+
+            // A delivery quest is finished when the stash holds what it asked for. Nothing advances a delivery:
+            // ProgressFrom returns 0 for it by design, so judging it by the counter left it Open forever and the
+            // claim screen could never be reached.
+            if (definition.Objective.Kind == QuestObjectiveKinds.Deliver)
+            {
+                if (profile == null || definition.Objective.ItemId == null)
+                {
+                    return QuestStatus.Open;
+                }
+
+                var have = profile.Stash.Stash.Count(instance =>
+                    string.Equals(instance.ItemId, definition.Objective.ItemId, StringComparison.Ordinal));
+                return have >= definition.Objective.Count ? QuestStatus.Done : QuestStatus.Open;
+            }
+
             return entry.Progress >= definition.Objective.Count ? QuestStatus.Done : QuestStatus.Open;
         }
 
         /// <summary>The quests a screen should offer, in data order, with their derived status.</summary>
         public static IReadOnlyList<QuestDefinition> Visible(IEnumerable<QuestDefinition> definitions,
-            QuestLog log) =>
-            definitions.Where(definition => StatusOf(definition, log) != QuestStatus.Locked).ToList();
+            QuestLog log, IReadOnlyCollection<string> flags = null, Profile profile = null) =>
+            definitions.Where(definition => StatusOf(definition, log, flags, profile) != QuestStatus.Locked).ToList();
 
         /// <summary>
         /// How much one finished trip adds. Only an extraction counts: loot that was lost on the way out
@@ -95,7 +120,8 @@ namespace Safehouse.Core
         /// <summary>Adds progress to one quest, clamped, and only while it is open.</summary>
         public static QuestLog Advance(QuestLog log, QuestDefinition definition, int amount)
         {
-            if (amount <= 0 || StatusOf(definition, log) != QuestStatus.Open)
+            if (amount <= 0 || definition.Objective.Kind == QuestObjectiveKinds.Event
+                || StatusOf(definition, log) != QuestStatus.Open)
             {
                 return log;
             }
@@ -122,7 +148,7 @@ namespace Safehouse.Core
         public static string ClaimError(Profile profile, QuestDefinition definition, QuestLog log,
             IReadOnlyDictionary<string, ItemDefinition> catalog)
         {
-            var status = StatusOf(definition, log);
+            var status = StatusOf(definition, log, profile.Flags, profile);
             if (status == QuestStatus.Claimed)
             {
                 return "That reward was already taken.";

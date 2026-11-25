@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using Safehouse.Core;
@@ -76,7 +76,11 @@ namespace Safehouse.Data
                 objectiveRow["item"]?.Value<string>(),
                 objectiveRow["category"]?.Value<string>());
 
+            // An event objective carries an event id, which is not in the item catalogue - only items are checked.
+        if (kind != QuestObjectiveKinds.Event)
+        {
             CheckItem(objective.ItemId, catalog, questId, "objective");
+        }
 
             var rewardRow = row["reward"];
             var items = new List<QuestRewardItem>();

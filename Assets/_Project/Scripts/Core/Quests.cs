@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -16,7 +16,11 @@ namespace Safehouse.Core
         /// <summary>Hand N of an item over from the stash when the quest is claimed.</summary>
         public const string Deliver = "deliver";
 
-        public static readonly IReadOnlyList<string> All = new[] { Extract, Loot, Deliver };
+        /// <summary>Live through an authored event. The event id rides in the item field, which is the only
+        /// free string an objective has; the engine advances it directly when the choice is taken.</summary>
+        public const string Event = "event";
+
+        public static readonly IReadOnlyList<string> All = new[] { Extract, Loot, Deliver, Event };
     }
 
     public static class QuestStatus
@@ -78,6 +82,8 @@ namespace Safehouse.Core
                 : Category ?? "items";
             switch (Kind)
             {
+                case QuestObjectiveKinds.Event:
+                    return "See it through: " + (ItemId ?? "an event");
                 case QuestObjectiveKinds.Extract:
                     return MapId == null
                         ? Count == 1 ? "Come back alive from any map" : $"Come back alive {Count} times"

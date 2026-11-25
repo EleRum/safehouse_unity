@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "note": "Task chain for the QUESTS screen. Objective kinds: extract (come back alive from a map), loot (bring back N of an item or category), deliver (hand N over from the stash). Rewards are roubles, trader standing, and items. requires lists quest ids that must be claimed first, so the chain is a graph, not a list.",
+  "note": "Quest chain. Objective kinds: extract / loot / deliver / event. An event objective names the event id in `item` and is finished by living through that scene in data/events.json.",
   "quests": [
     {
       "quest_id": "prapor-1-first-blood",
@@ -15,46 +15,64 @@
       "quest_id": "prapor-2-bandages",
       "trader_id": "prapor",
       "title": "Field Kit",
-      "text": "My boys are bleeding faster than I can resupply them. Bring me bandages - the cheap ones will do.",
+      "text": "My boys are bleeding faster than I can resupply them. Bring me bandages.",
       "requires": ["prapor-1-first-blood"],
       "objective": { "kind": "deliver", "item": "army-bandage", "count": 4 },
       "reward": { "roubles": 20000, "standing": 15, "items": [ { "item": "ai-2-medkit", "count": 2 } ] }
     },
     {
-      "quest_id": "prapor-3-factory-run",
-      "trader_id": "prapor",
-      "title": "Under the Factory",
-      "text": "The Factory is small, dark and full of people who want your rifle. Come out of it once and I will believe you.",
-      "requires": ["prapor-2-bandages"],
-      "objective": { "kind": "extract", "map": "factory", "count": 1 },
-      "reward": { "roubles": 30000, "standing": 20, "items": [ { "item": "545x39mm-bt-gs", "count": 2 } ] }
-    },
-    {
-      "quest_id": "prapor-4-ammo-run",
-      "trader_id": "prapor",
-      "title": "Bring Back the Good Stuff",
-      "text": "BT goes for a fortune and I am not paying it. Two boxes, brought back in one piece.",
-      "requires": ["prapor-3-factory-run"],
-      "objective": { "kind": "loot", "item": "545x39mm-bt-gs", "count": 2 },
-      "reward": { "roubles": 45000, "standing": 25, "items": [] }
-    },
-    {
       "quest_id": "therapist-1-meds",
       "trader_id": "therapist",
-      "title": "Something for the Wounded",
-      "text": "A Salewa kit, brought back from a raid, not bought from me. I want to know it can be done.",
+      "title": "Pharmacist",
+      "text": "Painkillers, the ordinary ones. Not for me.",
       "requires": [],
-      "objective": { "kind": "loot", "item": "salewa-first-aid-kit", "count": 1 },
-      "reward": { "roubles": 12000, "standing": 8, "items": [ { "item": "army-bandage", "count": 3 } ] }
+      "objective": { "kind": "deliver", "item": "analgin-painkillers", "count": 2 },
+      "reward": { "roubles": 18000, "standing": 12, "items": [ { "item": "golden-star-balm", "count": 1 } ] }
     },
     {
-      "quest_id": "therapist-2-rations",
-      "trader_id": "therapist",
-      "title": "Full Shelves",
-      "text": "Food is the quiet part of survival. Four rations, and I will remember your name.",
-      "requires": ["therapist-1-meds"],
-      "objective": { "kind": "loot", "category": "Food", "count": 4 },
-      "reward": { "roubles": 18000, "standing": 12, "items": [ { "item": "golden-star-balm", "count": 1 } ] }
+      "quest_id": "mil1",
+      "trader_id": "prapor",
+      "title": "Checkpoint Seven",
+      "text": "A patrol on the north side is holding a dead checkpoint: three men, no radio, no officer for six days. Find out what they need and whether they are still worth supplying.",
+      "requires": [],
+      "objective": { "kind": "event", "item": "mil1-stop", "count": 1 },
+      "reward": { "roubles": 10000, "standing": 5, "items": [ { "item": "aseptic-bandage", "count": 2 } ] }
+    },
+    {
+      "quest_id": "mil2",
+      "trader_id": "prapor",
+      "title": "Diesel",
+      "text": "Their generator is dry. Two cans of fuel buys them another week, and buys you their trust.",
+      "requires": ["mil1"],
+      "objective": { "kind": "event", "item": "mil2-diesel", "count": 1 },
+      "reward": { "roubles": 25000, "standing": 10, "items": [ { "item": "metal-fuel-tank", "count": 1 } ] }
+    },
+    {
+      "quest_id": "mil3",
+      "trader_id": "prapor",
+      "title": "The Radio",
+      "text": "Bring their set back to life: one rechargeable cell, second floor of the old station, third locker. What else is in that locker is your business.",
+      "requires": ["mil2"],
+      "objective": { "kind": "event", "item": "mil3-battery", "count": 1 },
+      "reward": { "roubles": 20000, "standing": 10, "items": [ { "item": "556x45mm-m855-ammo-pack-50-pcs", "count": 1 } ] }
+    },
+    {
+      "quest_id": "mil4",
+      "trader_id": "prapor",
+      "title": "The Lieutenant",
+      "text": "Six days ago their officer walked south and did not come back. Find him, or find what he was carrying.",
+      "requires": ["mil3"],
+      "objective": { "kind": "event", "item": "mil4-lieutenant", "count": 1 },
+      "reward": { "roubles": 35000, "standing": 15, "items": [ { "item": "salewa-first-aid-kit", "count": 1 } ] }
+    },
+    {
+      "quest_id": "mil5",
+      "trader_id": "prapor",
+      "title": "Hold In Place",
+      "text": "The dispatch case is open and the paper inside has three numbers on it. Whatever you tell those men, tell it to their faces.",
+      "requires": ["mil4"],
+      "objective": { "kind": "event", "item": "mil5-hold", "count": 1 },
+      "reward": { "roubles": 50000, "standing": 20, "items": [ { "item": "analgin-painkillers", "count": 2 } ] }
     }
   ]
 }

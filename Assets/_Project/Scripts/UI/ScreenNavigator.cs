@@ -20,7 +20,7 @@ namespace Safehouse.UI
         private static readonly Dictionary<string, Screen> Screens = new Dictionary<string, Screen>();
 
         /// <summary>The bed every screen asks for. One id means one continuous piece of music across the whole
-        /// game: the only thing a screen change does is play the telegraph key over it.</summary>
+        /// game: a screen change leaves it playing exactly where it was.</summary>
         private const string MenuBed = "menu";
 
         /// <summary>The screen last shown with <see cref="Go"/>, or null if none has been (the scene's first screen is showing).</summary>
@@ -48,11 +48,8 @@ namespace Safehouse.UI
                 return;
             }
 
-            // One place for the two things every screen change should sound like: a telegraph key, and the
-            // bed. There is deliberately only one bed: asking for the same id again does nothing, so changing
-            // screens lets the music keep playing instead of restarting it. "raid" stays available for a
-            // screen that genuinely wants its own music - call AudioDirector.Music("raid") from that screen.
-            AudioDirector.Play(Sound.Telegraph);
+            // A screen change makes no sound of its own: the music carries over untouched, and a click on
+            // every tab press was noisy enough that the owner asked for it to go.
             AudioDirector.Music(MenuBed);
 
             foreach (var other in Screens.Where(pair => pair.Key != name).ToList())

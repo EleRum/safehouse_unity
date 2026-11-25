@@ -20,6 +20,15 @@ namespace Safehouse.Core
         public const string Active = "active";
         public const string AwaitingChoice = "awaiting_choice";
         public const string Completed = "completed";
+
+        /// <summary>A fight the player has to answer round by round. The trip is paused until it is over:
+        /// nothing else on the screen can be pressed while <see cref="Expedition.Encounter"/> is set.</summary>
+        public const string InEncounter = "encounter";
+
+        public static readonly IReadOnlyList<string> All = new[]
+        {
+            Active, AwaitingChoice, Completed, InEncounter,
+        };
     }
 
     public sealed class RngState
@@ -47,7 +56,7 @@ namespace Safehouse.Core
 
     public sealed class Expedition
     {
-        public const int SchemaVersion = 4;
+        public const int SchemaVersion = 5;
         public const int MaxParty = 3;
         public const int MaxLogEntries = 200;
         public const int MaxLootPerCharacter = 2000;
@@ -56,7 +65,7 @@ namespace Safehouse.Core
             long startedAt, string zoneId, long zoneStartedAt, string status, string outcome,
             IReadOnlyDictionary<string, IReadOnlyList<string>> loot, IReadOnlyList<string> discarded,
             IReadOnlyList<string> log, RngState rngState, string mode, Route route, string locationId = null,
-            int nodesVisited = 0)
+            int nodesVisited = 0, Encounter encounter = null, string pendingEvent = null, string eventNode = null)
         {
             ExpeditionId = Validate.Identifier(expeditionId, "expedition_id", instance: true);
             MapId = Validate.Identifier(mapId, "map_id");
@@ -110,6 +119,14 @@ namespace Safehouse.Core
 
             LocationId = locationId;
             NodesVisited = nodesVisited;
+            Encounter = encounter;
+            PendingEventId = string.IsNullOrWhiteSpace(pendingEvent) ? null : pendingEvent;
+            EventNodeId = string.IsNullOrWhiteSpace(eventNode) ? null : eventNode;
+            if (Encounter != null && status != ExpeditionStatus.InEncounter)
+            {
+                throw new ValidationException("An expedition can only have an encounter while its status is "
+                                              + "'" + ExpeditionStatus.InEncounter + "'.");
+            }
         }
 
         public string ExpeditionId { get; }
@@ -146,10 +163,26 @@ namespace Safehouse.Core
         /// </summary>
         public int NodesVisited { get; }
 
+        /// <summary>The fight the party is in the middle of, or null. Set exactly while the status is
+        /// <see cref="ExpeditionStatus.InEncounter"/>; the trip file carries it so quitting mid-fight is safe.</summary>
+        public Encounter Encounter { get; }
+
+        /// <summary>A scene waiting to be played out here in the raid, or null. Set when walking into a node
+        /// turns one up; the trip cannot be moved on until it is answered.</summary>
+        public string PendingEventId { get; }
+
+        /// <summary>
+        /// The node a main-line scene is waiting at, or null. The map draws it green: the story does not ambush
+        /// the party at every corner, it tells them which door to open and then waits there.
+        /// </summary>
+        public string EventNodeId { get; }
+
         public Expedition With(string zoneId = null, long? zoneStartedAt = null, string status = null,
             string outcome = null, bool keepOutcome = true, Route route = null, bool keepRoute = true,
             Dictionary<string, List<string>> loot = null, List<string> discarded = null, List<string> log = null,
-            RngState rngState = null, string locationId = null, bool keepLocation = true, int? nodesVisited = null)
+            RngState rngState = null, string locationId = null, bool keepLocation = true, int? nodesVisited = null,
+            Encounter encounter = null, bool keepEncounter = true, string pendingEvent = null,
+            bool keepPendingEvent = true, string eventNode = null, bool keepEventNode = true)
         {
             IReadOnlyDictionary<string, IReadOnlyList<string>> lootValue = loot == null
                 ? Loot.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value.ToList())
@@ -160,7 +193,10 @@ namespace Safehouse.Core
                 lootValue, discarded ?? Discarded, log ?? Log, rngState ?? RngState, Mode,
                 keepRoute ? (route ?? Route) : route,
                 keepLocation ? (locationId ?? LocationId) : locationId,
-                nodesVisited ?? NodesVisited);
+                nodesVisited ?? NodesVisited,
+                keepEncounter ? (encounter ?? Encounter) : encounter,
+                keepPendingEvent ? (pendingEvent ?? PendingEventId) : pendingEvent,
+                keepEventNode ? (eventNode ?? EventNodeId) : eventNode);
         }
     }
 
@@ -255,9 +291,20 @@ namespace Safehouse.Core
                 gear.Ammo.TryGetValue(ammoId, out ammo);
             }
 
-            var armorIds = profile.Loadout.Items
+            var armorItems = profile.Loadout.Items
                 .Where(item => item.Slot == LoadoutSlots.Armor || item.Slot == LoadoutSlots.Helmet)
-                .Select(item => item.ItemId);
+                .ToList();
+            var armorWear = new Dictionary<string, int>();
+            foreach (var piece in armorItems)
+            {
+                foreach (var part in piece.Slot == LoadoutSlots.Helmet
+                             ? new[] { "head" }
+                             : new[] { "thorax", "stomach" })
+                {
+                    armorWear[part] = piece.Durability;
+                }
+            }
+
             worn.TryGetValue(LoadoutSlots.Meds, out var medId);
             gear.Meds.TryGetValue(medId ?? "", out var med);
             var conditions = new Dictionary<string, string[]>();
@@ -268,8 +315,11 @@ namespace Safehouse.Core
 
             var max = CharacterSheet.BodyPartMaxHealth.ToDictionary(pair => pair.Key, pair => pair.Value);
             return new Fighter(profile.ProfileId, profile.DisplayName, profile.BodyParts, max, conditions,
-                weapon, ammo, gear.ArmorClasses(armorIds), med == null ? 0 : med.Heal * med.Uses,
-                med != null && med.StopsLightBleed, med != null && med.StopsHeavyBleed, med != null && med.TreatsFracture);
+                weapon, ammo,
+                gear.ArmorClasses(armorItems.Select(piece => (piece.ItemId, piece.Durability))),
+                med == null ? 0 : med.Heal * med.Uses,
+                med != null && med.StopsLightBleed, med != null && med.StopsHeavyBleed, med != null && med.TreatsFracture,
+                armorWear);
         }
 
         /// <summary>
@@ -279,6 +329,42 @@ namespace Safehouse.Core
         public static int CarryLimit(Profile profile, GearData gear) =>
             profile.Rig.StashWidth * profile.Rig.StashHeight
             + profile.Backpack.StashWidth * profile.Backpack.StashHeight;
+
+        /// <summary>
+        /// How many kilograms a character can hump: fifteen, plus three per point of muscle. The grids decide
+        /// volume, this decides mass - which is what makes a big backpack a trade rather than a free upgrade.
+        /// </summary>
+        public const int BaseCarryWeight = 15;
+        public const int CarryWeightPerMuscle = 3;
+
+        public static int MaxWeight(Profile profile) =>
+            BaseCarryWeight + CarryWeightPerMuscle
+            * (profile.Abilities.TryGetValue("muscle", out var muscle) ? muscle : CharacterSheet.AbilityBase);
+
+        /// <summary>
+        /// What is actually on the character: everything in the rig and the backpack, plus everything worn -
+        /// gear counts at 100 %, same as loot (the earlier half-weight rule for worn kit was dropped by design).
+        /// The stash is at home and does not count.
+        /// </summary>
+        public static double CarriedWeight(Profile profile, IReadOnlyDictionary<string, ItemDefinition> catalog)
+        {
+            var total = 0.0;
+            foreach (var grid in new[] { profile.Rig, profile.Backpack })
+            {
+                PlacementRules.StashTotals(grid, catalog, out _, out var weight, out _);
+                total += weight;
+            }
+
+            foreach (var worn in profile.Loadout.Items)
+            {
+                if (catalog.TryGetValue(worn.ItemId, out var item))
+                {
+                    total += item.Weight;
+                }
+            }
+
+            return total;
+        }
 
         public static (Expedition Expedition, Dictionary<string, Fighter> Fighters) ResolveZone(
             Expedition expedition, MapDefinition map, IReadOnlyDictionary<string, ItemDefinition> catalog,
@@ -340,7 +426,7 @@ namespace Safehouse.Core
 
         public static (Expedition Expedition, Dictionary<string, Fighter> Fighters) Move(
             Expedition expedition, string nodeId, MapDefinition map, CombatNumbers numbers, RaidRules rules,
-            IReadOnlyDictionary<string, Fighter> fighters)
+            IReadOnlyDictionary<string, Fighter> fighters, string resolvedEncounter = null)
         {
             var current = CurrentNode(expedition);
             if (!current.Neighbors.Contains(nodeId))
@@ -352,12 +438,23 @@ namespace Safehouse.Core
             var random = expedition.RngState.Restore();
             var party = expedition.Party.Select(id => fighters[id].Copy()).ToList();
             var log = expedition.Log.ToList();
-            var chance = NightScaled(rules.PatrolPercent[zone.ZoneId], rules.PatrolNightBonusPercent, expedition.Night);
-            if (party.Any(fighter => fighter.Standing) && random.RandRange(100) < chance)
+
+            // A patrol on the way is a fight the player answers: the move is suspended here and picked up
+            // again by the session once the encounter has an outcome ("won", "fled" or "lost").
+            if (resolvedEncounter == null)
             {
-                var resolved = CombatRules.ResolveEncounter(party, Enemy.Scav(numbers), zone.EngagementRange, random, numbers);
-                party = resolved.Party;
-                log.Add("Patrol: " + resolved.Result.Summary());
+                var chance = NightScaled(rules.PatrolPercent[zone.ZoneId], rules.PatrolNightBonusPercent, expedition.Night);
+                if (party.Any(fighter => fighter.Standing) && random.RandRange(100) < chance)
+                {
+                    var patrol = Enemy.Scav(numbers);
+                    var encounter = Encounter.From(patrol, "patrol", nodeId, -1);
+                    log.Add($"Contact: a {patrol.Name} on the way in.");
+                    var pauseState = random.GetState();
+                    var paused = expedition.With(status: ExpeditionStatus.InEncounter, encounter: encounter,
+                        log: Trim(log),
+                        rngState: new RngState(pauseState.Version, pauseState.Words, pauseState.Index, pauseState.GaussNext));
+                    return (paused, Zip(expedition, party));
+                }
             }
 
             var updated = Zip(expedition, party);
@@ -367,14 +464,16 @@ namespace Safehouse.Core
                 rngState: new RngState(state.Version, state.Words, state.Index, state.GaussNext),
                 status: wiped ? ExpeditionStatus.Completed : expedition.Status,
                 outcome: wiped ? "wiped" : expedition.Outcome,
-                nodesVisited: expedition.NodesVisited + 1);
+                nodesVisited: expedition.NodesVisited + 1,
+                keepEncounter: false);
             return (next, updated);
         }
 
         public static (Expedition Expedition, Dictionary<string, Fighter> Fighters) Choose(
             Expedition expedition, int choiceIndex, MapDefinition map, IReadOnlyDictionary<string, ItemDefinition> catalog,
             LootTables tables, RaidRules rules, GearData gear, CombatNumbers numbers,
-            IReadOnlyDictionary<string, Fighter> fighters, IReadOnlyDictionary<string, int> carryLimits)
+            IReadOnlyDictionary<string, Fighter> fighters, IReadOnlyDictionary<string, int> carryLimits,
+            string resolvedEncounter = null)
         {
             var node = CurrentNode(expedition);
             if (node.Cleared)
@@ -398,31 +497,45 @@ namespace Safehouse.Core
             var random = expedition.RngState.Restore();
             var party = expedition.Party.Select(id => fighters[id].Copy()).ToList();
             var log = expedition.Log.ToList();
-            var chance = NightScaled(choice.EnemyPercent, choice.NightEnemyBonusPercent, expedition.Night);
-            if (party.Any(fighter => fighter.Standing) && random.RandRange(100) < chance)
-            {
-                foreach (var enemy in DirectEnemies(zone, node, gear, numbers))
-                {
-                    if (!party.Any(fighter => fighter.Standing))
-                    {
-                        break;
-                    }
 
-                    var resolved = CombatRules.ResolveEncounter(party, enemy, zone.EngagementRange, random, numbers);
-                    party = resolved.Party;
-                    log.Add(resolved.Result.Summary());
+            // Same shape as Move: the fight happens before the node is dealt with, and the session comes back
+            // here with the outcome. Nothing is looted or cleared until then.
+            if (resolvedEncounter == null)
+            {
+                var chance = NightScaled(choice.EnemyPercent, choice.NightEnemyBonusPercent, expedition.Night);
+                if (party.Any(fighter => fighter.Standing) && random.RandRange(100) < chance)
+                {
+                    var enemy = DirectEnemies(zone, node, gear, numbers).FirstOrDefault();
+                    if (enemy != null)
+                    {
+                        var encounter = Encounter.From(enemy, "choice", node.NodeId, choiceIndex);
+                        log.Add($"Contact: a {enemy.Name}.");
+                        var pauseState = random.GetState();
+                        var paused = expedition.With(status: ExpeditionStatus.InEncounter, encounter: encounter,
+                            log: Trim(log),
+                            rngState: new RngState(pauseState.Version, pauseState.Words, pauseState.Index, pauseState.GaussNext));
+                        return (paused, Zip(expedition, party));
+                    }
                 }
+            }
+
+            // A clean escape leaves the node as it was found: no search, no loot, but the walk on is free.
+            var escaped = resolvedEncounter == EncounterOutcomeKind.Fled;
+            if (escaped)
+            {
+                log.Add("You broke contact and left the rest of it where it was.");
             }
 
             var updated = Zip(expedition, party);
             var loot = CopyLoot(expedition.Loot);
             var discarded = expedition.Discarded.ToList();
             var standing = expedition.Party.Where(id => updated[id].Standing).ToList();
-            if (standing.Count > 0 && choice.LootRolls > 0)
+            var rolls = escaped ? 0 : choice.LootRolls;
+            if (standing.Count > 0 && rolls > 0)
             {
                 var before = discarded.Count;
                 var foundItems = new List<string>();
-                for (var index = 0; index < choice.LootRolls; index++)
+                for (var index = 0; index < rolls; index++)
                 {
                     var found = node.Kind == "container"
                         ? LootRolls.SearchContainer(node.ContainerType, tables, random, zone.ZoneId)
@@ -455,7 +568,8 @@ namespace Safehouse.Core
             var next = expedition.With(route: expedition.Route.With(nodes: nodes), loot: loot, discarded: discarded,
                 log: Trim(log), rngState: new RngState(state.Version, state.Words, state.Index, state.GaussNext),
                 status: wiped ? ExpeditionStatus.Completed : expedition.Status,
-                outcome: wiped ? "wiped" : expedition.Outcome);
+                outcome: wiped ? "wiped" : expedition.Outcome,
+                keepEncounter: false);
             return (next, updated);
         }
 
@@ -646,7 +760,11 @@ namespace Safehouse.Core
 
                 var cells = carried.Sum(id => catalog[id].Width * catalog[id].Height);
                 var item = catalog[itemId];
-                if (false)
+
+                // The carry limit was written, shown in the raid panel, and then never applied: this branch used
+                // to read `if (false)`, so a party could carry the whole map home. A limit of 0 means "no limit",
+                // which is what an unset entry in the limits table means.
+                if (limit > 0 && cells + item.Width * item.Height > limit)
                 {
                     discarded.Add(itemId);
                 }

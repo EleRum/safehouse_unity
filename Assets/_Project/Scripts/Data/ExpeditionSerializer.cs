@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -54,16 +54,23 @@ namespace Safehouse.Data
                 ["route"] = expedition.Route == null ? JValue.CreateNull() : RouteJson(expedition.Route),
                 ["location_id"] = expedition.LocationId == null ? JValue.CreateNull() : new JValue(expedition.LocationId),
                 ["node_visits"] = expedition.NodesVisited,
+                ["encounter"] = expedition.Encounter == null ? JValue.CreateNull() : EncounterJson(expedition.Encounter),
+                ["pending_event"] = expedition.PendingEventId == null
+                    ? JValue.CreateNull()
+                    : new JValue(expedition.PendingEventId),
+                ["event_node"] = expedition.EventNodeId == null
+                    ? JValue.CreateNull()
+                    : new JValue(expedition.EventNodeId),
             };
         }
 
         public static Expedition FromJson(JObject raw)
         {
             var version = raw.Value<int?>("schema_version");
-            if (version != 1 && version != 2 && version != 3 && version != Expedition.SchemaVersion)
+            if (version != 1 && version != 2 && version != 3 && version != 4 && version != Expedition.SchemaVersion)
             {
                 throw new ValidationException(
-                    $"Expedition file must contain schema_version 1, 2, 3 or {Expedition.SchemaVersion}.");
+                    $"Expedition file must contain schema_version 1, 2, 3, 4 or {Expedition.SchemaVersion}.");
             }
 
             var legacy = version == 1;
@@ -108,11 +115,52 @@ namespace Safehouse.Data
                 raw["log"].Select(token => token.Value<string>()).ToList(),
                 new RngState(rng[0].Value<int>(), words, sequence[PythonRandom.StateLength].Value<int>(),
                     rng[2].Type == JTokenType.Null ? (double?)null : rng[2].Value<double>()),
-                resumedMode, route, locationId, nodesVisited);
+                resumedMode, route, locationId, nodesVisited, ReadEncounter(raw["encounter"]),
+                raw["pending_event"] == null || raw["pending_event"].Type == JTokenType.Null
+                    ? null
+                    : raw.Value<string>("pending_event"),
+                raw["event_node"] == null || raw["event_node"].Type == JTokenType.Null
+                    ? null
+                    : raw.Value<string>("event_node"));
         }
 
         private static JToken Gauss(double? value) =>
             value.HasValue ? new JValue(value.Value) : JValue.CreateNull();
+
+        private static JObject EncounterJson(Encounter encounter) => new JObject
+        {
+            ["enemy_name"] = encounter.EnemyName,
+            ["health"] = encounter.Health,
+            ["health_max"] = encounter.HealthMax,
+            ["armor_class"] = encounter.ArmorClass,
+            ["penetration"] = encounter.Penetration,
+            ["damage"] = encounter.Damage,
+            ["fire_rate"] = encounter.FireRate,
+            ["boss"] = encounter.Boss,
+            ["source"] = encounter.Source,
+            ["node_id"] = encounter.NodeId,
+            ["choice_index"] = encounter.ChoiceIndex,
+            ["rounds"] = encounter.Rounds,
+            ["distance"] = encounter.Distance,
+        };
+
+        /// <summary>schema 4 and older files have no encounter at all, so a missing key is simply null.</summary>
+        private static Encounter ReadEncounter(JToken raw)
+        {
+            if (raw == null || raw.Type == JTokenType.Null)
+            {
+                return null;
+            }
+
+            var row = (JObject)raw;
+            var distance = row["distance"] == null || row["distance"].Type == JTokenType.Null
+                ? Encounter.DefaultDistance
+                : row.Value<int>("distance");
+            return new Encounter(row.Value<string>("enemy_name"), row.Value<int>("health"), row.Value<int>("health_max"),
+                row.Value<int>("armor_class"), row.Value<int>("penetration"), row.Value<int>("damage"),
+                row.Value<int>("fire_rate"), row.Value<bool>("boss"), row.Value<string>("source"),
+                row.Value<string>("node_id"), row.Value<int>("choice_index"), row.Value<int>("rounds"), distance);
+        }
 
         private static JObject RouteJson(Route route)
         {

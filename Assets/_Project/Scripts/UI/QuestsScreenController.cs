@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Safehouse.Core;
@@ -35,7 +35,7 @@ namespace Safehouse.UI
         private string _selectedId;
 
         private static IReadOnlyList<QuestDefinition> Definitions =>
-            _definitions ?? (_definitions = QuestLoader.Load());
+            _definitions ?? (_definitions = QuestBindings.LoadQuests());
 
         private static Dictionary<string, ItemDefinition> Catalog =>
             _catalog ?? (_catalog = CatalogLoader.Load());
@@ -62,6 +62,11 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            var gmTab = _root.Q<Button>("navtab-gm");
+            if (gmTab != null)
+            {
+                gmTab.clicked += () => ScreenNavigator.Go("gm");
+            }
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
 
             ScreenNavigator.Register("quests", Show, Hide);
@@ -100,7 +105,7 @@ namespace Safehouse.UI
             }
 
             var log = LoadLog();
-            var visible = QuestRules.Visible(Definitions, log);
+            var visible = QuestRules.Visible(Definitions, log, Session?.Profile?.Flags, Session?.Profile);
             if (visible.Count == 0)
             {
                 _status.text = "No tasks are open yet.";
@@ -119,7 +124,7 @@ namespace Safehouse.UI
 
         private VisualElement Card(QuestDefinition quest, QuestLog log)
         {
-            var status = QuestRules.StatusOf(quest, log);
+            var status = QuestRules.StatusOf(quest, log, Session?.Profile?.Flags, Session?.Profile);
             var card = new Button(() =>
             {
                 _selectedId = quest.QuestId;
@@ -154,6 +159,16 @@ namespace Safehouse.UI
             };
             detail.AddToClassList("text-muted");
             card.Add(detail);
+
+            // What finishing it pays, on the card itself: the player should not have to open a task to find out
+            // whether it is worth the trip. Locked tasks never reach this code - they are filtered out before the
+            // list is built - so nothing here is a spoiler for a scene that has not been earned yet.
+            var reward = new Label("REWARD  " + quest.Reward.Describe(Catalog))
+            {
+                style = { fontSize = 11, marginTop = 2, whiteSpace = WhiteSpace.Normal },
+            };
+            reward.AddToClassList("text-accent");
+            card.Add(reward);
             return card;
         }
 
@@ -191,7 +206,7 @@ namespace Safehouse.UI
                 return;
             }
 
-            var status = QuestRules.StatusOf(quest, log);
+            var status = QuestRules.StatusOf(quest, log, Session?.Profile?.Flags, Session?.Profile);
             _title.text = quest.Title.ToUpperInvariant();
             _trader.text = quest.TraderId.ToUpperInvariant();
             _text.text = quest.Text;

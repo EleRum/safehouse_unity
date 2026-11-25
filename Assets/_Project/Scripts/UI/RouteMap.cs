@@ -42,6 +42,7 @@ namespace Safehouse.UI
         private readonly VisualElement _lines;
         private Route _route;
         private bool _canMove;
+        private string _eventNodeId;
         private Action<string> _onMove;
         private float _width;
         private float _height;
@@ -81,11 +82,12 @@ namespace Safehouse.UI
             });
         }
 
-        public void Show(Route route, bool canMove, Action<string> onMove)
+        public void Show(Route route, bool canMove, Action<string> onMove, string eventNodeId = null)
         {
             _route = route;
             _canMove = canMove;
             _onMove = onMove;
+            _eventNodeId = eventNodeId;
             Rebuild();
         }
 
@@ -111,28 +113,38 @@ namespace Safehouse.UI
                 return;
             }
 
+            var legendText = _eventNodeId != null
+                ? "GREEN MARK: SOMETHING IS WAITING THERE"
+                : "GOLD LINES ARE OPEN";
             var current = _route.Nodes[_route.CurrentNodeId];
             foreach (var node in _route.Nodes.Values)
             {
                 var open = _canMove && IsNeighbor(current, node.NodeId);
                 var here = node.NodeId == current.NodeId;
-                Add(Token(node, here, open));
+                Add(Token(node, here, open, node.NodeId == _eventNodeId));
             }
 
-            var legend = new Label("GOLD LINES ARE OPEN") { pickingMode = PickingMode.Ignore };
+            var legend = new Label(legendText) { pickingMode = PickingMode.Ignore };
             legend.AddToClassList("raid-legend");
             legend.AddToClassList("text-label");
             Add(legend);
             _lines.MarkDirtyRepaint();
         }
 
-        private VisualElement Token(RouteNode node, bool here, bool open)
+        private VisualElement Token(RouteNode node, bool here, bool open, bool storyHere = false)
         {
             var center = RouteMapLayout.Center((float)node.X, (float)node.Y, _width, _height);
             var token = new VisualElement { pickingMode = PickingMode.Ignore };
             token.AddToClassList("raid-token");
             token.style.left = center.x - 40f;
             token.style.top = center.y - RouteMapLayout.NodeSize / 2f;
+
+            if (storyHere)
+            {
+                var storyRing = new VisualElement { pickingMode = PickingMode.Ignore };
+                storyRing.AddToClassList("raid-ring-story");
+                token.Add(storyRing);
+            }
 
             if (here || open)
             {

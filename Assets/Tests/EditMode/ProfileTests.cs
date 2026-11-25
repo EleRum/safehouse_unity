@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Newtonsoft.Json.Linq;
@@ -80,7 +80,7 @@ namespace Safehouse.Tests
             var text = Encoding.UTF8.GetString(bytes);
 
             Assert.AreNotEqual(0xEF, bytes[0], "no BOM");
-            StringAssert.StartsWith("{\n  \"schema_version\": 9,\n  \"profile_id\": ", text);
+            StringAssert.StartsWith("{\n  \"schema_version\": 10,\n  \"profile_id\": ", text);
             StringAssert.EndsWith("}\n", text);
             StringAssert.DoesNotContain("\r", text);
         }
@@ -152,20 +152,20 @@ namespace Safehouse.Tests
                 baseProfile.BodyParts, baseProfile.Conditions, baseProfile.Bio, abilities);
 
             var notATier = baseProfile.Abilities.ToDictionary(pair => pair.Key, pair => pair.Value);
-            notATier["strength"] = 6;
+            notATier["muscle"] = 6;
             Assert.Throws<ValidationException>(() => With(notATier));
 
             // Two tens cost 10, exactly the pool; three cost 15.
             var spent = baseProfile.Abilities.ToDictionary(pair => pair.Key, pair => pair.Value);
-            spent["strength"] = 10;
+            spent["muscle"] = 10;
             spent["agility"] = 10;
             Assert.DoesNotThrow(() => With(spent));
-            spent["looks"] = 10;
+            spent["humanity"] = 10;
             Assert.Throws<ValidationException>(() => With(spent));
 
             // Dropping others to 3 gives points back: 3 x -2 = -6, so a third ten is now affordable.
-            spent["dexterity"] = 3;
-            spent["intelligence"] = 3;
+            spent["finesse"] = 3;
+            spent["perception"] = 3;
             spent["sense"] = 3;
             Assert.DoesNotThrow(() => With(spent));
         }
@@ -220,7 +220,7 @@ namespace Safehouse.Tests
             var upgraded = ProfileMigrations.Upgrade(V1Document());
             var profile = ProfileSerializer.FromJson(upgraded);
 
-            Assert.AreEqual(9, upgraded["schema_version"].Value<int>());
+            Assert.AreEqual(10, upgraded["schema_version"].Value<int>());
             Assert.AreEqual("Old Save", profile.DisplayName);
             Assert.AreEqual("cpu-fan", profile.Stash.Stash.Single().ItemId, "the old test item is renamed");
             Assert.AreEqual((3, 4), (profile.Stash.Stash.Single().X, profile.Stash.Stash.Single().Y));

@@ -20,11 +20,12 @@
                 <ui:Label text="SAFEHOUSE" class="text-heading" />
             </ui:VisualElement>
             <ui:Button text="CHARACTER" name="navtab-character" class="navtab" />
+            <ui:Button text="SCENES" name="navtab-gm" class="navtab" />
             <ui:Button text="GEAR" name="navtab-gear" class="navtab navtab-active" />
             <ui:Button text="HIDEOUT" name="navtab-hideout" class="navtab" />
             <ui:Button text="TRADERS" name="navtab-traders" class="navtab" />
             <ui:Button text="SCAVENGE" name="navtab-scavenge" class="navtab" />
-            <ui:Button text="QUESTS" name="navtab-quests" class="navtab" />
+            <ui:Button text="QUESTS" name="navtab-quests" class="navtab" />
             <ui:VisualElement style="flex-grow: 1;" />
             <ui:Button text="SETTINGS" name="navtab-settings" class="navtab" />
             <ui:VisualElement style="flex-direction: row; align-items: flex-end; margin-right: 18px;">
@@ -180,24 +181,24 @@
                     </ui:VisualElement>
                     <ui:VisualElement style="flex-direction: row; flex-wrap: wrap;">
                         <ui:VisualElement style="width: 33%; align-items: center; margin-bottom: 8px;">
-                            <ui:Label name="ab-strength" text="" class="text-mono text-good" style="font-size: 19px;" />
-                            <ui:Label text="STRENGTH" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-muscle" text="" class="text-mono text-good" style="font-size: 19px;" />
+                            <ui:Label text="MUSCLE" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center; margin-bottom: 8px;">
-                            <ui:Label name="ab-dexterity" text="" class="text-mono" style="font-size: 19px;" />
-                            <ui:Label text="DEXTERITY" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-finesse" text="" class="text-mono" style="font-size: 19px;" />
+                            <ui:Label text="FINESSE" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center; margin-bottom: 8px;">
                             <ui:Label name="ab-agility" text="" class="text-mono text-danger" style="font-size: 19px;" />
                             <ui:Label text="AGILITY" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center;">
-                            <ui:Label name="ab-intelligence" text="" class="text-mono text-accent" style="font-size: 19px;" />
-                            <ui:Label text="INTELLIGENCE" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-perception" text="" class="text-mono text-accent" style="font-size: 19px;" />
+                            <ui:Label text="PERCEPTION" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center;">
-                            <ui:Label name="ab-charisma" text="" class="text-mono" style="font-size: 19px;" />
-                            <ui:Label text="CHARISMA" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
+                            <ui:Label name="ab-charm" text="" class="text-mono" style="font-size: 19px;" />
+                            <ui:Label text="CHARM" style="font-size: 9px; letter-spacing: 1px; color: rgb(120, 132, 143);" />
                         </ui:VisualElement>
                         <ui:VisualElement style="width: 33%; align-items: center;">
                             <ui:Label name="ab-sense" text="" class="text-mono" style="font-size: 19px;" />

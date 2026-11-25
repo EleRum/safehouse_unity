@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -68,12 +68,14 @@ namespace Safehouse.Data
                     ["slot"] = worn.Slot,
                     ["instance_id"] = worn.InstanceId,
                     ["item_id"] = worn.ItemId,
+                    ["durability"] = worn.Durability,
                 })),
                 ["body_parts"] = new JObject(CharacterSheet.BodyParts.Select(part =>
                     new JProperty(part, profile.BodyParts[part]))),
                 ["conditions"] = new JObject(CharacterSheet.BodyParts.Where(profile.Conditions.ContainsKey).Select(part =>
                     new JProperty(part, new JArray(profile.Conditions[part])))),
                 ["bio"] = new JObject(CharacterSheet.BioFields.Select(field => new JProperty(field, profile.Bio[field]))),
+                ["flags"] = new JArray(profile.Flags),
                 ["abilities"] = new JObject(CharacterSheet.Abilities.Select(name =>
                     new JProperty(name, profile.Abilities[name]))),
                 ["carried"] = new JObject
@@ -138,7 +140,8 @@ namespace Safehouse.Data
                 Obj(root["bio"], "bio").Properties().ToDictionary(p => p.Name, p => Str(p.Value, p.Name)),
                 Obj(root["abilities"], "abilities").Properties().ToDictionary(p => p.Name, p => Int(p.Value, p.Name)),
                 ReadRoom(root["personal_room"]),
-                ReadGundog(root["gundog"]));
+                ReadGundog(root["gundog"]),
+                ReadFlags(root["flags"]));
         }
 
         private static JObject GundogJson(GundogSheet sheet) => new JObject
@@ -199,6 +202,19 @@ namespace Safehouse.Data
             return ItemInstance.Create(
                 Str(item["instance_id"], "instance_id"), Str(item["item_id"], "item_id"),
                 Int(item["x"], "x"), Int(item["y"], "y"), Int(item["rotation"], "rotation"));
+        }
+
+        /// <summary>Files from before story flags simply have none.</summary>
+        private static IReadOnlyList<string> ReadFlags(JToken token)
+        {
+            if (token == null || token.Type != JTokenType.Array)
+            {
+                return new string[0];
+            }
+
+            return token.Select(entry => entry.Value<string>())
+                .Where(flag => !string.IsNullOrWhiteSpace(flag))
+                .ToList();
         }
 
         private static Loadout ReadLoadout(JToken token)

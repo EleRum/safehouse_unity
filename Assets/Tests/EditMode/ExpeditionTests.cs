@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -93,7 +93,7 @@ namespace Safehouse.Tests
             var world = LoadWorld();
             var calm = Profile.CreateNew(ProfileId(), "Calm");
             var gifted = calm.With(abilities: CharacterSheet.Abilities.ToDictionary(
-                name => name, name => name == "strength" ? 10 : name == "looks" ? 3 : CharacterSheet.AbilityBase));
+                name => name, name => name == "muscle" ? 10 : name == "humanity" ? 3 : CharacterSheet.AbilityBase));
             var first = Resolve(world, calm, 9);
             var second = Resolve(world, gifted, 9);
             CollectionAssert.AreEqual(first.Expedition.Log, second.Expedition.Log);

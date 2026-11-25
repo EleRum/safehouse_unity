@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
@@ -13,11 +13,6 @@ namespace Safehouse.UI
     public enum Sound
     {
         Click,
-
-        /// <summary>A telegraph key - what the tab bar plays, so moving between screens sounds like a field
-        /// station rather than three beeps.</summary>
-        Telegraph,
-
         Error,
         Move,
         Equip,
@@ -36,6 +31,9 @@ namespace Safehouse.UI
 
         Death,
         Extract,
+
+        /// <summary>The checkpoint radio: the sound a military scene opens with.</summary>
+        Radio,
     }
 
     /// <summary>
@@ -64,6 +62,7 @@ namespace Safehouse.UI
         private AudioSource _bedB;
         private AudioSource _sfx;
         private AudioSource _heart;
+        private AudioSource _ambience;
         private bool _bedAIsLive = true;
         private bool _listenerAdded;
         private string _musicId;      // what should be playing; null is silence
@@ -168,6 +167,49 @@ namespace Safehouse.UI
             _heart.Play();
         }
 
+        /// <summary>
+        /// The radio bed under a scene: a long recording, looped, on its own source. It runs beside the music
+        /// instead of replacing it - the score is the room, the radio is what is in it - and it never touches
+        /// the music volume, so navigaton keeps whatever bed it set.
+        /// </summary>
+        public static void Ambience(bool on) => _instance?.SetAmbience(on);
+
+        private void SetAmbience(bool on)
+        {
+            if (_ambience == null)
+            {
+                return;
+            }
+
+            if (!on)
+            {
+                if (_ambience.isPlaying)
+                {
+                    _ambience.Stop();
+                }
+
+                return;
+            }
+
+            if (_ambience.isPlaying)
+            {
+                return;
+            }
+
+            var clip = Clip("radio");
+            if (clip == null)
+            {
+                return;
+            }
+
+            _ambience.clip = clip;
+            _ambience.volume = AmbienceVolume;
+            _ambience.Play();
+        }
+
+        /// <summary>0.2 of the effect level: audible under the music, never louder than it.</summary>
+        private static float AmbienceVolume => Mathf.Clamp01(SfxVolume) * 0.2f;
+
         private static float HeartbeatVolume => Mathf.Clamp01(SfxVolume) * 0.9f;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -216,6 +258,12 @@ namespace Safehouse.UI
             _heart.playOnAwake = false;
             _heart.spatialBlend = 0f;
             _heart.volume = 0f;
+
+            _ambience = gameObject.AddComponent<AudioSource>();
+            _ambience.loop = true;
+            _ambience.playOnAwake = false;
+            _ambience.spatialBlend = 0f;
+            _ambience.volume = 0f;
         }
 
         private void Start()

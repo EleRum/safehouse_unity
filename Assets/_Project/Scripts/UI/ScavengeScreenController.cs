@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Safehouse.Core;
@@ -49,6 +49,7 @@ namespace Safehouse.UI
         private Label _hint;
         private VisualElement _deathOverlay;
         private readonly List<(Label Bin, string ProfileId)> _bins = new List<(Label, string)>();
+        private EventBook _eventBook;
         private string _binnedProfileId;
         private string _binnedFloorItem;
         private string _binnedInstanceId;
@@ -88,6 +89,11 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
+            var gmTab = _root.Q<Button>("navtab-gm");
+            if (gmTab != null)
+            {
+                gmTab.clicked += () => ScreenNavigator.Go("gm");
+            }
             ScreenNavigator.Register("scavenge", Show, Hide);
             Hide();
         }
@@ -469,10 +475,235 @@ namespace Safehouse.UI
             var gear = GearLoader.Load(Catalog());
             var node = trip.Route.Nodes[trip.Route.CurrentNodeId];
             var mapView = new RouteMap();
-            mapView.Show(trip.Route, trip.Status == ExpeditionStatus.Active,
-                id => Run(() => Expeditions(session).Move(trip, id), session));
+            mapView.Show(trip.Route,
+                trip.Status == ExpeditionStatus.Active && trip.Encounter == null && trip.PendingEventId == null,
+                id => Run(() => Expeditions(session).Move(trip, id), session), trip.EventNodeId);
             column.Add(mapView);
+            if (trip.Encounter != null)
+            {
+                DrawEncounter(session, trip, column);
+            }
+            else if (trip.PendingEventId != null)
+            {
+                DrawRaidEvent(session, trip, column);
+            }
+
             DrawDossier(session, trip, node, rules, gear);
+        }
+
+        /// <summary>
+        /// A scene out here, drawn exactly like the fight panel above it: this is a thing happening to the party
+        /// and here are the answers. The map stops taking clicks until it is answered.
+        /// </summary>
+        private void DrawRaidEvent(CharacterSession session, Expedition trip, VisualElement column)
+        {
+            EventBook book;
+            try
+            {
+                // The store caches on file stamps, so asking every draw costs nothing and never shows an old scene.
+            book = EventStore.Load(Catalog());
+            }
+            catch (Exception error)
+            {
+                column.Add(new Label(error.Message));
+                return;
+            }
+
+            var scene = book.Find(trip.PendingEventId);
+            if (scene == null)
+            {
+                return;
+            }
+
+            var box = new VisualElement { style = { marginBottom = 12 } };
+            box.AddToClassList("kia-panel");
+
+            var kicker = new Label("SCENE");
+            kicker.AddToClassList("kia-title");
+            box.Add(kicker);
+
+            var title = new Label(scene.Title.ToUpperInvariant());
+            title.AddToClassList("text-mono");
+            title.style.fontSize = 15;
+            title.style.marginBottom = 6;
+            box.Add(title);
+
+            var body = new Label(scene.Text);
+            body.AddToClassList("kia-body");
+            body.style.whiteSpace = WhiteSpace.Normal;
+            body.style.maxWidth = Length.Percent(100);
+            box.Add(body);
+
+            var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
+            var carried = new HashSet<string>(session.Profile.Rig.Stash.Concat(session.Profile.Backpack.Stash)
+                .Select(item => item.ItemId));
+            for (var index = 0; index < scene.Choices.Count; index++)
+            {
+                var choice = scene.Choices[index];
+                var choiceIndex = index;
+
+                // A choice the character cannot offer is not shown at all. The index stays the scene's own, so
+                // resolving still addresses the right choice.
+                if (!EventRules.ChoiceOffered(choice, session.Profile.Flags, id => carried.Contains(id)))
+                {
+                    continue;
+                }
+
+                var button = ChoiceButton(choice.Label, false, () => ResolveRaidEvent(session, trip, choiceIndex));
+                button.style.marginTop = 8;
+                button.style.marginRight = 8;
+                row.Add(button);
+            }
+
+            box.Add(row);
+            column.Add(box);
+            AudioDirector.Ambience(true);
+        }
+
+        private void ResolveRaidEvent(CharacterSession session, Expedition trip, int choiceIndex)
+        {
+            string failure = null;
+            try
+            {
+                failure = Expeditions(session).ResolveEvent(trip, session.Profile.ProfileId, choiceIndex);
+                session.Reload();
+            }
+            catch (Exception error)
+            {
+                failure = error.Message;
+                Debug.LogException(error);
+            }
+
+            if (failure == null)
+            {
+                AudioDirector.Ambience(false);
+            }
+
+            Refresh();
+            if (failure != null)
+            {
+                _error.text = failure;
+            }
+        }
+
+        /// <summary>
+        /// The fight: who it is, how much of it is left, and the four things that can be done about it. The node
+        /// it interrupted is still described behind it, without buttons, until the fight is over.
+        /// </summary>
+        private void DrawEncounter(CharacterSession session, Expedition trip, VisualElement column)
+        {
+            var encounter = trip.Encounter;
+            var box = new VisualElement { style = { marginBottom = 12 } };
+            box.AddToClassList("kia-panel");
+
+            var title = new Label("CONTACT");
+            title.AddToClassList("kia-title");
+            box.Add(title);
+
+            var who = new Label(encounter.EnemyName.ToUpperInvariant() + (encounter.Boss ? "   ·   BOSS" : ""));
+            who.AddToClassList("text-mono");
+            who.style.fontSize = 15;
+            who.style.marginBottom = 6;
+            box.Add(who);
+
+            var track = new VisualElement { style = { height = 8, backgroundColor = new Color(0.16f, 0.18f, 0.21f) } };
+            var fill = new VisualElement
+            {
+                style =
+                {
+                    height = 8,
+                    width = new Length(100f * encounter.Health / Mathf.Max(1, encounter.HealthMax), LengthUnit.Percent),
+                    backgroundColor = new Color(0.78f, 0.31f, 0.235f),
+                },
+            };
+            track.Add(fill);
+            box.Add(track);
+
+            var hp = new Label($"{encounter.Health} / {encounter.HealthMax} HP   ·   ROUND {encounter.Rounds + 1}"
+                               + $"   ·   {encounter.Distance} M  {encounter.Range.ToUpperInvariant()}");
+            hp.AddToClassList("text-mono");
+            hp.AddToClassList("text-muted");
+            hp.style.fontSize = 11;
+            hp.style.marginTop = 4;
+            hp.style.marginBottom = 8;
+            box.Add(hp);
+
+            var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
+            row.Add(FightButton("AIM BODY", session, trip, "attack", Aim.Body));
+            row.Add(FightButton("AIM HEAD", session, trip, "attack", Aim.Head));
+            row.Add(FightButton("AIM LEGS", session, trip, "attack", Aim.Legs));
+            row.Add(FightButton("CRAWL", session, trip, "crawl", Aim.Body));
+            row.Add(FightButton("FLEE", session, trip, "flee", Aim.Body));
+            box.Add(row);
+
+            var note = new Label("Crawl: no shot this round, a third of the damage back, 8 m closer each time - "
+                                 + "the range band picks what your weapon is worth. Flee: no loot from this node. "
+                                 + "Double-click a medkit in a backpack to heal - it costs the round.");
+            note.AddToClassList("text-muted");
+            note.style.fontSize = 10;
+            note.style.whiteSpace = WhiteSpace.Normal;
+            note.style.marginTop = 6;
+            box.Add(note);
+
+            column.Add(box);
+        }
+
+        private Button FightButton(string text, CharacterSession session, Expedition trip, string action, Aim aim)
+        {
+            var button = ChoiceButton(text, action == "attack", () => FightRound(session, trip, action, aim));
+            button.style.marginRight = 6;
+            button.style.marginBottom = 6;
+            return button;
+        }
+
+        /// <summary>
+        /// One round of the fight, then redraw. The sound follows what happened rather than the button: a shot
+        /// for a burst, the radio chirp for a kill, the death hit if the character went down, silence when it
+        /// is only cover and a miss.
+        /// </summary>
+        private void FightRound(CharacterSession session, Expedition trip, string action, Aim aim,
+            string instanceId = null)
+        {
+            var before = PartyHealth(session, trip);
+            string failure = null;
+            IReadOnlyList<string> lines = null;
+            string outcome = null;
+            try
+            {
+                var result = Expeditions(session).Fight(trip, session.Profile.ProfileId, action, aim, instanceId);
+                failure = result.Error;
+                lines = result.Log;
+                outcome = result.Outcome;
+                session.Reload();
+            }
+            catch (Exception error)
+            {
+                failure = error.Message;
+            }
+
+            if (action != "cover")
+            {
+                AudioDirector.Play(PartyTookDamage(session, before) ? Sound.Shot : Sound.Error);
+            }
+
+            if (outcome == EncounterOutcomeKind.Won)
+            {
+                AudioDirector.Play(Sound.Extract);
+            }
+            else if (outcome == EncounterOutcomeKind.Lost)
+            {
+                AudioDirector.Play(Sound.Death);
+            }
+
+            Refresh();
+            if (failure != null)
+            {
+                _error.text = failure;
+            }
+            else if (lines != null && lines.Count > 0 && _hint != null)
+            {
+                _hint.text = string.Join(" ", lines);
+            }
         }
 
         private void DrawDossier(CharacterSession session, Expedition trip, RouteNode node, RaidRules rules, GearData gear)
@@ -496,7 +727,19 @@ namespace Safehouse.UI
             body.AddToClassList("raid-body");
             _detail.Add(body);
 
-            if (node.Kind == "exit")
+            // A fight pauses the node: its options come back when the fight is over (or never, if the node was
+            // searched by winning or the player left it alone by fleeing). The party panel below keeps drawing -
+            // a player in a firefight still has to see their own wounds and their own medkits.
+            if (trip.Encounter != null)
+            {
+                var hold = new Label("Finish the fight first - or use a medkit from a backpack.");
+                hold.AddToClassList("text-muted");
+                hold.style.fontSize = 11;
+                hold.style.whiteSpace = WhiteSpace.Normal;
+                hold.style.marginTop = 6;
+                _detail.Add(hold);
+            }
+            else if (node.Kind == "exit")
             {
                 var map = _maps[trip.MapId];
                 var row = new VisualElement { style = { flexDirection = FlexDirection.Row, flexWrap = Wrap.Wrap } };
@@ -1071,6 +1314,15 @@ namespace Safehouse.UI
                 return;
             }
 
+            var fighting = OpenTrip(session);
+            if (fighting != null && fighting.Encounter != null)
+            {
+                // Mid-firefight a bandage costs the round: the enemy still gets its burst while the character
+                // is tearing tape. That is the choice the fight is asking for.
+                FightRound(session, fighting, "heal", Aim.Body, instance.InstanceId);
+                return;
+            }
+
             string failure = null;
             string message = null;
             try
@@ -1221,6 +1473,9 @@ namespace Safehouse.UI
                     _error.text = error;
                 }
 
+                // Every path that puts an item somewhere plays exactly one sound: this one, the bins, the
+                // meds. Missing it here was the bug that made a drop between two *different* grids silent.
+                AudioDirector.Play(error == null ? Sound.Move : Sound.Error);
                 return;
             }
 
@@ -1420,7 +1675,8 @@ namespace Safehouse.UI
                 }
             }
 
-            AudioDirector.Heartbeat(critical);
+            // trip is null on the launch screen - a fight is one of the two reasons for a pulse, not the only one.
+            AudioDirector.Heartbeat(critical || (trip != null && trip.Encounter != null));
         }
 
         /// <summary>

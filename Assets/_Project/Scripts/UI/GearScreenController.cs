@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -56,6 +56,9 @@ namespace Safehouse.UI
             public Label Erg;    // primary weapon only
             public Label Rcl;
             public VisualElement Art;   // the item's icon filling the card, when it has one; else null
+
+            public VisualElement Wear;      // the thin durability bar, built once per slot card
+            public VisualElement WearFill;
         }
 
         private const string LastCharacterKey = "Safehouse.LastCharacter";
@@ -87,6 +90,8 @@ namespace Safehouse.UI
         private Label _labelStashCells;
         private Label _labelStashValue;
         private Label _labelCarried;
+        private Label _labelWeight;
+        private Label _labelWeightMax;
         private VisualElement _trashBin;
         private Label _trashIcon;
         private Label _trashLabel;
@@ -144,6 +149,21 @@ namespace Safehouse.UI
                     Erg = _root.Q<Label>("slot-" + slot + "-erg"),
                     Rcl = _root.Q<Label>("slot-" + slot + "-rcl"),
                 };
+
+                // The durability bar, built here so it sits in the same place on every card and only shows for
+                // the pieces that can wear. Two elements: a track and a fill whose width is the percentage.
+                if (slot == LoadoutSlots.Armor || slot == LoadoutSlots.Helmet)
+                {
+                    var track = new VisualElement();
+                    track.AddToClassList("slot-wear");
+                    var fill = new VisualElement();
+                    fill.AddToClassList("slot-wear-fill");
+                    track.Add(fill);
+                    view.Card.Add(track);
+                    view.Wear = track;
+                    view.WearFill = fill;
+                }
+
                 _slots.Add(view);
                 RegisterDrag(view.Card, () => _loadout.Get(view.Slot)?.InstanceId);
             }
@@ -151,6 +171,8 @@ namespace Safehouse.UI
             _labelStashCells = _root.Q<Label>("label-stash-cells");
             _labelStashValue = _root.Q<Label>("label-stash-value");
             _labelCarried = _root.Q<Label>("label-carried");
+            _labelWeight = _root.Q<Label>("load-weight");
+            _labelWeightMax = _root.Q<Label>("load-weight-max");
             _swatchSelected = _root.Q<VisualElement>("swatch-selected");
             _labelSelectedIcon = _root.Q<Label>("label-selected-icon");
             _labelSelectedName = _root.Q<Label>("label-selected-name");
@@ -188,7 +210,12 @@ namespace Safehouse.UI
             _root.Q<Button>("navtab-traders").clicked += () => ScreenNavigator.Go("traders");
             _root.Q<Button>("navtab-hideout").clicked += () => ScreenNavigator.Go("hideout");
             _root.Q<Button>("navtab-settings").clicked += () => ScreenNavigator.Go("settings");
-            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            _root.Q<Button>("navtab-scavenge").clicked += () => ScreenNavigator.Go("scavenge");
+            var gmTab = _root.Q<Button>("navtab-gm");
+            if (gmTab != null)
+            {
+                gmTab.clicked += () => ScreenNavigator.Go("gm");
+            }
             _root.Q<Button>("navtab-quests").clicked += () => ScreenNavigator.Go("quests");
 
             // The toolbar and the bottom bar were drawn for the design but never wired. They now do
@@ -373,12 +400,12 @@ namespace Safehouse.UI
                 total.text = profile.Health.ToString();
             }
 
-            // The panel shows the profile's own six; CharacterSheet.Abilities has eight and the
-            // vocabulary is not the Gundog sheet's (that one is the class sheet, shown on CHARACTER).
+            // Six of the eight: the panel has room for six cells, and build/humanity are left to the sheet.
+            // The ids are the Gundog sheet's ids now, since schema 10 made the two lists one.
             (string Ability, string Element)[] abilities =
             {
-                ("strength", "ab-strength"), ("dexterity", "ab-dexterity"), ("agility", "ab-agility"),
-                ("intelligence", "ab-intelligence"), ("charisma", "ab-charisma"), ("sense", "ab-sense"),
+                ("muscle", "ab-muscle"), ("finesse", "ab-finesse"), ("agility", "ab-agility"),
+                ("perception", "ab-perception"), ("charm", "ab-charm"), ("sense", "ab-sense"),
             };
 
             foreach (var (ability, element) in abilities)
@@ -403,25 +430,7 @@ namespace Safehouse.UI
                 range.text = CharacterSheet.AbilityMin + " – " + CharacterSheet.AbilityMax;
             }
 
-            var weight = 0.0;
-            foreach (var grid in new[] { profile.Stash, profile.Rig, profile.Backpack })
-            {
-                PlacementRules.StashTotals(grid, _catalog, out _, out var grams, out _);
-                weight += grams;
-            }
-
-            var weightLabel = _root.Q<Label>("load-weight");
-            if (weightLabel != null)
-            {
-                weightLabel.text = weight.ToString("0.0");
-            }
-
-            var weightMax = _root.Q<Label>("load-weight-max");
-            if (weightMax != null)
-            {
-                weightMax.text = "/ " + ExpeditionRules.CarryLimit(profile, _gear) + " KG";
-            }
-
+            // The weight bar is in UpdateHeaders: it has to follow every move, not just a character change.
             var hp = _root.Q<Label>("load-hp");
             if (hp != null)
             {
@@ -871,6 +880,19 @@ namespace Safehouse.UI
                 }
 
                 view.Stat.text = SlotStat(view.Slot, worn.ItemId);
+
+                // A thin bar under the piece for whatever can wear out: armour and helmets lose life when they
+                // eat a round, and that is the number the player needs at a glance before going out.
+                if (view.Wear != null)
+                {
+                    var wears = worn.Slot == LoadoutSlots.Armor || worn.Slot == LoadoutSlots.Helmet;
+                    view.Wear.style.display = wears ? DisplayStyle.Flex : DisplayStyle.None;
+                    if (wears)
+                    {
+                        view.WearFill.style.width = new Length(worn.Durability, LengthUnit.Percent);
+                        view.WearFill.style.backgroundColor = WornColour(worn.Durability);
+                    }
+                }
                 if (view.Erg != null)
                 {
                     _gear.Weapons.TryGetValue(worn.ItemId, out var weapon);
@@ -884,6 +906,11 @@ namespace Safehouse.UI
                 MarkSlotSelected(SlotViewFor(_loadout.FindByInstance(_selectedInstanceId).Slot));
             }
         }
+
+        private static Color WornColour(int durability) =>
+            durability > 60 ? new Color(0.44f, 0.62f, 0.36f)
+            : durability > 25 ? new Color(0.85f, 0.64f, 0.25f)
+            : new Color(0.78f, 0.31f, 0.235f);
 
         private string SlotStat(string slot, string itemId)
         {
@@ -944,6 +971,23 @@ namespace Safehouse.UI
             }
 
             _labelCarried.text = $"{carried} / {capacity}";
+
+            // Weight lives here, not in ApplyVitals: this runs after every move, and the bar used to be filled
+            // only when the character changed, so it never moved. It is also real weight now - what the rig, the
+            // backpack and half the worn kit weigh - against the muscle cap, not the cell count dressed up as kg.
+            var profile = _session.Profile;
+            var weight = ExpeditionRules.CarriedWeight(profile, _catalog);
+            var limit = ExpeditionRules.MaxWeight(profile);
+            if (_labelWeight != null)
+            {
+                _labelWeight.text = weight.ToString("0.0");
+                _labelWeight.EnableInClassList("text-danger", weight > limit);
+            }
+
+            if (_labelWeightMax != null)
+            {
+                _labelWeightMax.text = "/ " + limit + " KG";
+            }
         }
 
         // ---- looking items up: an item is in exactly one grid, or worn ----
@@ -1156,7 +1200,7 @@ namespace Safehouse.UI
             _views[1].Grid = result.Rig;
             _views[2].Grid = result.Backpack;
             RefreshAll();
-            AudioDirector.Play(Sound.Equip);
+            AudioDirector.Play(Sound.Move); // a loadout slot is one more place to put something
             return null;
         }
 
@@ -1210,7 +1254,7 @@ namespace Safehouse.UI
             _views[1].Grid = result.Rig;
             _views[2].Grid = result.Backpack;
             RefreshAll();
-            AudioDirector.Play(Sound.Equip);
+            AudioDirector.Play(Sound.Move); // a loadout slot is one more place to put something
             return null;
         }
 

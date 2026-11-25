@@ -122,6 +122,10 @@ namespace Safehouse.Data
         private readonly CombatNumbers _combat;
         private readonly RaidRules _raids;
         private readonly IReadOnlyDictionary<string, ItemDefinition> _catalog;
+        private EventBook _events;
+
+        /// <summary>Five in a hundred per node walked into: a scene is a surprise, not a schedule.</summary>
+        private const int RaidEventPercent = 5;
 
         public ExpeditionSession(ExpeditionRepository expeditions, ProfileRepository profiles, AccountRepository accounts,
             IReadOnlyDictionary<string, MapDefinition> maps, ContainerRules containers, GearData gear,
@@ -178,6 +182,9 @@ namespace Safehouse.Data
 
             var expedition = ExpeditionRules.Create(mapId, night, party.Select(profile => profile.ProfileId).ToList(),
                 now, mode, route, random, zoneId, locationId);
+            // The green mark is placed before the party takes a single step, so the first screen of the trip
+            // already says where the story is waiting.
+            expedition = MaybeRaiseEvent(expedition);
             var updated = party.ToDictionary(profile => profile.ProfileId,
                 profile => profile.With(status: CharacterSheet.OnExpedition));
             Commit(expedition, updated, null);
@@ -236,9 +243,205 @@ namespace Safehouse.Data
             var resolved = ExpeditionRules.Move(expedition, nodeId, _maps[expedition.MapId], _combat, _raids, Fighters(current));
             var changed = ExpeditionRules.SyncProfiles(current, resolved.Fighters);
             var recorded = ExpeditionRules.NoteDeaths(resolved.Expedition, current, changed);
+            recorded = MaybeRaiseEvent(recorded);
             Commit(recorded, changed, null);
             return recorded;
         }
+
+        /// <summary>
+        /// A scene out here, rolled the way a patrol is rolled: walking into a node is when the street can happen
+        /// to you. Five in a hundred, and only when nothing else is already on screen - a fight or another scene
+        /// keeps the floor until it is answered.
+        /// </summary>
+        private Expedition MaybeRaiseEvent(Expedition expedition)
+        {
+            if (expedition.PendingEventId != null || expedition.Encounter != null
+                || expedition.Status == ExpeditionStatus.Completed || expedition.Route == null)
+            {
+                return expedition;
+            }
+
+            var random = expedition.RngState.Restore();
+            var log = new QuestRepository(_profiles.DataFolder).Load(expedition.Party[0]);
+            // The party leader's history is the one the scenes are written against.
+            var leader = _profiles.Load(expedition.Party[0]);
+            var flags = leader.Flags;
+            var abilities = leader.Abilities;
+
+            // A main-line scene does not ambush the party at every corner: it picks a door, marks it green on the
+            // map, and waits there. Walking into that node opens it.
+            var mainLine = EventRules.NextMainLine(Book, log, EventPhases.Raid, flags, abilities);
+            if (mainLine != null && !OnThisMap(mainLine, expedition))
+            {
+                // A scene pinned to another map waits: it does not mark a door here.
+                mainLine = null;
+            }
+            if (mainLine != null)
+            {
+                if (expedition.EventNodeId == null)
+                {
+                    var target = PickEventNode(expedition, random, mainLine);
+                    if (target == null)
+                    {
+                        return expedition;
+                    }
+
+                    var marked = expedition.Log.ToList();
+                    marked.Add("There is somewhere you should be going.");
+                    return expedition.With(eventNode: target,
+                        rngState: state_of(random));
+                }
+
+                if (expedition.Route.CurrentNodeId == expedition.EventNodeId)
+                {
+                    var lines = expedition.Log.ToList();
+                    lines.Add("Something happens here.");
+                    UnityEngine.Debug.Log($"[events] raised '{mainLine.EventId}' at {expedition.EventNodeId}.");
+                    return expedition.With(pendingEvent: mainLine.EventId, keepEventNode: false, log: lines,
+                        rngState: state_of(random));
+                }
+
+                return expedition;
+            }
+
+            if (random.RandRange(100) >= RaidEventPercent)
+            {
+                return expedition;
+            }
+
+            var candidate = EventRules.NextRandom(Book, log, EventPhases.Raid, random, flags, abilities);
+            if (candidate == null)
+            {
+                return expedition;
+            }
+
+            var extra = expedition.Log.ToList();
+            extra.Add("Something happens here.");
+            UnityEngine.Debug.Log($"[events] random '{candidate.EventId}' at {expedition.Route.CurrentNodeId}.");
+            return expedition.With(pendingEvent: candidate.EventId, log: extra, rngState: state_of(random));
+
+            RngState state_of(PythonRandom r)
+            {
+                var state = r.GetState();
+                return new RngState(state.Version, state.Words, state.Index, state.GaussNext);
+            }
+        }
+
+        /// <summary>Whether the scene belongs on the map this trip is walking.</summary>
+        private static bool OnThisMap(StoryEvent scene, Expedition expedition) =>
+            scene.Place?.MapId == null
+            || string.Equals(scene.Place.MapId, expedition.MapId, StringComparison.Ordinal);
+
+        /// <summary>
+        /// Which door the story is behind. The scene says where it wants to happen - a kind of node, or nothing -
+        /// and this honours that: a scene written for an exit is marked on an exit, a scene with no preference
+        /// still prefers a container, because a scene belongs at something rather than in an empty corridor.
+        /// </summary>
+        private static string PickEventNode(Expedition expedition, PythonRandom random, StoryEvent scene)
+        {
+            var current = expedition.Route.CurrentNodeId;
+            var wanted = scene?.Place?.NodeKind;
+            var nodes = expedition.Route.Nodes.Values
+                .Where(node => !node.Cleared && node.NodeId != current)
+                .ToList();
+
+            var candidates = !string.IsNullOrEmpty(wanted)
+                ? nodes.Where(node => string.Equals(node.Kind, wanted, StringComparison.Ordinal)).ToList()
+                : nodes.Where(node => node.Kind != "exit").ToList();
+
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(wanted))
+            {
+                var containers = candidates.Where(node => node.Kind == "container").ToList();
+                if (containers.Count > 0)
+                {
+                    candidates = containers;
+                }
+            }
+
+            return candidates[random.RandRange(candidates.Count)].NodeId;
+        }
+
+        /// <summary>
+        /// Answers the scene waiting in the raid: the choice lands on the character, the quest it finishes is
+        /// advanced and saved, and the trip is free to move again. Returns why it was refused, or null.
+        /// </summary>
+        public string ResolveEvent(Expedition expedition, string profileId, int choiceIndex)
+        {
+            if (expedition == null || expedition.PendingEventId == null)
+            {
+                return "Nothing is happening here.";
+            }
+
+            var scene = Book.Find(expedition.PendingEventId);
+            if (scene == null)
+            {
+                return "That scene is not in the book any more.";
+            }
+
+            var profile = _profiles.Load(profileId);
+            Profile updated;
+            string line;
+            string advanced;
+            try
+            {
+                (updated, line, advanced) = EventRules.Apply(scene, choiceIndex, profile, _catalog,
+                    Context(profile, expedition));
+            }
+            catch (ValidationException error)
+            {
+                return error.Message;
+            }
+
+            // The scene has recorded itself on the character (EventRules.SeenFlag), and that record is what an
+            // event quest is judged by now. The old counter is still written for non-event objectives, because a
+            // quest that advanced on a trip keeps advancing the way it always did.
+            if (advanced != null)
+            {
+                var definition = QuestBindings.LoadQuests().FirstOrDefault(quest => quest.QuestId == advanced);
+                if (definition != null && definition.Objective.Kind != QuestObjectiveKinds.Event)
+                {
+                    var repository = new QuestRepository(_profiles.DataFolder);
+                    repository.Save(profileId, QuestRules.Advance(repository.Load(profileId), definition, 1));
+                }
+            }
+
+            var lines = expedition.Log.ToList();
+            if (!string.IsNullOrEmpty(line))
+            {
+                lines.Add(line);
+            }
+
+            Commit(expedition.With(keepPendingEvent: false, log: lines),
+                new Dictionary<string, Profile> { [profileId] = updated }, null);
+            return null;
+        }
+
+        /// <summary>The values a scene condition can read: the sheet, the purse, what is carried, what happened
+        /// before. Carried means the rig and backpack, not the stash at home.</summary>
+        private static ExpressionContext Context(Profile profile, Expedition expedition)
+        {
+            var carried = new HashSet<string>(profile.Rig.Stash.Concat(profile.Backpack.Stash)
+                .Select(item => item.ItemId));
+            return new ExpressionContext(profile.Abilities, profile.Money, expedition.Party.Count,
+                id => carried.Contains(id),
+                // seen("x") asks whether that scene has been played, and the record of that lives on the
+                // character. Passing a constant false made every such check take the failure branch silently.
+                id => profile.Flags.Contains(EventRules.SeenFlag(id)),
+                expedition.RngState.Restore(),
+                flag => profile.Flags.Contains(flag));
+        }
+
+        /// <summary>The scene book, read once per session.</summary>
+        /// <summary>
+        /// Always the current book. <see cref="EventStore"/> caches on the files' stamps, so this is cheap - and a
+        /// scene the GM saved a minute ago is what the next node rolls against, not whatever was loaded at launch.
+        /// </summary>
+        private EventBook Book => EventStore.Load(_catalog);
 
         /// <summary>
         /// Drops one of a character's finds on purpose, so a full bag can be made room in. The item goes
@@ -339,6 +542,187 @@ namespace Safehouse.Data
         }
 
         /// <summary>
+        /// Carries the wear from a round back onto the profile: the piece covering a part that took the round is
+        /// the piece that loses life. A vest covers thorax and stomach, so it takes the worse of the two.
+        /// </summary>
+        private static Profile ApplyArmourWear(Profile profile, IReadOnlyDictionary<string, int> wear)
+        {
+            if (wear == null || wear.Count == 0)
+            {
+                return profile;
+            }
+
+            var loadout = profile.Loadout;
+            foreach (var piece in profile.Loadout.Items)
+            {
+                var parts = piece.Slot == LoadoutSlots.Helmet
+                    ? new[] { "head" }
+                    : piece.Slot == LoadoutSlots.Armor
+                        ? new[] { "thorax", "stomach" }
+                        : new string[0];
+                var covered = parts.Where(wear.ContainsKey).Select(part => wear[part]).ToList();
+                if (covered.Count == 0)
+                {
+                    continue;
+                }
+
+                var lowest = covered.Min();
+                if (lowest != piece.Durability)
+                {
+                    loadout = loadout.With(piece.WithDurability(lowest));
+                }
+            }
+
+            return profile.With(loadout: loadout);
+        }
+
+        /// <summary>
+        /// fighting; if it ends the fight, the action that started it is finished in the same commit - the node
+        /// is searched (or deliberately not, after a clean escape) or the walk to the next node happens.
+        ///
+        /// <paramref name="action"/> is "attack", "cover" or "flee"; <paramref name="aim"/> only matters for an
+        /// attack. Returns why it was refused, or null, plus the lines to show the player.
+        /// </summary>
+        public (string Error, List<string> Log, string Outcome) Fight(Expedition expedition, string profileId,
+            string action, Aim aim = Aim.Body, string instanceId = null)
+        {
+            if (expedition == null || expedition.Encounter == null)
+            {
+                return ("There is nobody to fight.", new List<string>(), null);
+            }
+
+            if (!expedition.Party.Contains(profileId))
+            {
+                return ("That character is not on this trip.", new List<string>(), null);
+            }
+
+            var profile = _profiles.Load(profileId);
+            var fighter = ExpeditionRules.BuildFighter(profile, _gear);
+            var zone = _maps[expedition.MapId].Zone(expedition.ZoneId, expedition.Night);
+            var random = expedition.RngState.Restore();
+            var applied = profile; // healing changes the profile the rest of the round is worked out from
+            var firstLines = new List<string>();
+
+            (Encounter Encounter, Fighter Fighter, List<string> Log, string Outcome) round;
+            if (action == "cover" || action == "crawl")
+            {
+                // Crawling replaces the old "take cover": head down AND closer, which is what makes the range
+                // band matter - a shotgun at three metres is not a shotgun at forty.
+                round = EncounterRules.Crawl(expedition.Encounter, fighter, random, _combat);
+            }
+            else if (action == "flee")
+            {
+                var agility = profile.Abilities.TryGetValue("agility", out var score)
+                    ? score
+                    : CharacterSheet.AbilityBase;
+                round = EncounterRules.Flee(expedition.Encounter, fighter, random, _combat, agility);
+            }
+            else if (action == "heal")
+            {
+                // A bandage costs the round: the enemy gets its burst while the character is busy with it.
+                if (instanceId == null)
+                {
+                    return ("No medkit was picked.", new List<string>(), null);
+                }
+
+                var carried = profile.Rig.Stash.Concat(profile.Backpack.Stash)
+                    .FirstOrDefault(item => item.InstanceId == instanceId);
+                if (carried == null)
+                {
+                    return ("That item is not carried.", new List<string>(), null);
+                }
+
+                var name = _catalog.TryGetValue(carried.ItemId, out var definition) ? definition.Name : carried.ItemId;
+                if (!_gear.Meds.TryGetValue(carried.ItemId, out var med))
+                {
+                    return ($"{name} is not something you can use.", new List<string>(), null);
+                }
+
+                if (!HealingRules.WouldHelp(profile, med))
+                {
+                    return ($"{name} would not change anything right now.", new List<string>(), null);
+                }
+
+                Profile treated;
+                int healed;
+                IReadOnlyList<string> clearedConditions;
+                try
+                {
+                    (treated, healed, clearedConditions) = HealingRules.UseCarried(profile, instanceId, med);
+                }
+                catch (ValidationException error)
+                {
+                    return (error.Message, new List<string>(), null);
+                }
+
+                applied = treated;
+                firstLines.Add($"{name}: {healed} HP, "
+                               + (clearedConditions.Count > 0 ? string.Join(", ", clearedConditions) : "nothing cleared") + ".");
+                round = EncounterRules.EnemyTurn(expedition.Encounter, ExpeditionRules.BuildFighter(applied, _gear),
+                    random, _combat);
+            }
+            else if (action == "attack")
+            {
+                round = EncounterRules.Attack(expedition.Encounter, fighter, aim, random, _combat);
+            }
+            else
+            {
+                return ($"Unknown action '{action}'.", new List<string>(), null);
+            }
+
+            var state = random.GetState();
+            var log = expedition.Log.ToList();
+            log.AddRange(firstLines);
+            log.AddRange(round.Log);
+
+            // The wounds go into the profile before anything else is decided: the resumed action reads the
+            // party straight back out of the save files.
+            var status = round.Fighter.Standing
+                ? applied.Status
+                : (ExpeditionRules.KilledBy(round.Fighter) ? CharacterSheet.Dead : CharacterSheet.Downed);
+            var conditions = round.Fighter.Conditions.ToDictionary(
+                pair => pair.Key, pair => (IReadOnlyList<string>)pair.Value.ToList());
+            var wounded = applied.With(status: status, bodyParts: round.Fighter.BodyParts, conditions: conditions);
+            wounded = ApplyArmourWear(wounded, round.Fighter.ArmorDurability);
+
+            var advanced = expedition.With(encounter: round.Encounter, log: log,
+                rngState: new RngState(state.Version, state.Words, state.Index, state.GaussNext));
+
+            if (round.Outcome == EncounterOutcomeKind.Ongoing)
+            {
+                Commit(advanced, new Dictionary<string, Profile> { [profileId] = wounded }, null);
+                return (null, round.Log, round.Outcome);
+            }
+
+            // The fight is over: drop it and finish what it interrupted.
+            var source = advanced.Encounter.Source;
+            var nodeId = advanced.Encounter.NodeId;
+            var choiceIndex = advanced.Encounter.ChoiceIndex;
+            var cleared = advanced.With(keepEncounter: false, status: ExpeditionStatus.Active);
+
+            var party = LoadParty(cleared);
+            party[profileId] = wounded;
+            Expedition settled;
+            Dictionary<string, Fighter> after;
+            if (source == "patrol")
+            {
+                (settled, after) = ExpeditionRules.Move(cleared, nodeId, _maps[cleared.MapId], _combat, _raids,
+                    Fighters(party), round.Outcome);
+            }
+            else
+            {
+                (settled, after) = ExpeditionRules.Choose(cleared, choiceIndex, _maps[cleared.MapId], _catalog,
+                    new LootTables(_catalog, _containers), _raids, _gear, _combat, Fighters(party), Limits(party),
+                    round.Outcome);
+            }
+
+            var changed = ExpeditionRules.SyncProfiles(party, after);
+            changed[profileId] = wounded;
+            Commit(settled, changed, null);
+            return (null, round.Log, round.Outcome);
+        }
+
+        /// <summary>
         /// Uses a medkit the character is carrying, mid-raid. The stash is back home, so the kit has to be
         /// one of the instances in the rig or the backpack - and a character bleeding out at a cache is not
         /// going to walk home for it. The treated parts and the freed cell are written with the log line in
@@ -406,6 +790,7 @@ namespace Safehouse.Data
             var done = ExpeditionRules.NoteDeaths(resolved.Expedition, current, changed);
 
             // Finds stay on the floor until the player drags them into the rig or backpack.
+            done = MaybeRaiseEvent(done);
             Commit(done, changed, null);
             return done;
         }

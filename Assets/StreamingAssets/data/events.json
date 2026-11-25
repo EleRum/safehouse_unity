@@ -1,0 +1,295 @@
+{
+  "schema_version": 1,
+  "note": "Main line: Checkpoint Seven (military). Every scene is data. main_line scenes have weight 0 and play in act order; the raid rolls them onto a green-marked node so the player walks to the story instead of being ambushed by it. Attribute points are scarce: one delta per act at most, never in a repeatable scene.",
+  "events": [
+    {
+      "event_id": "mil1-stop",
+      "act": 1,
+      "phase": "raid",
+      "place": { "map": "customs", "location": "", "node": "" },
+      "title": "STOPPED",
+      "text": "A hand takes your collar and puts you against the wall. No shouting. Boots apart, hands flat, and a voice at your ear: 'North side. How many were there.' He means soldiers, not people. The muzzle stays where it is until you answer.",
+      "requires": { "quest_done": [], "not_done": [], "flags": [] },
+      "weight": 0,
+      "choices": [
+        {
+          "label": "NONE. THERE IS NOBODY NORTH.",
+          "cost": {},
+          "outcome": {
+            "log": "He steps back and lets you breathe. 'Seven. Checkpoint seven. Bring diesel.' He gives you a torn strip of paper with the grid on it.",
+            "roubles": 0,
+            "items": ["secure-flash-drive"],
+            "standing": {},
+            "advances": "mil1"
+          }
+        },
+        {
+          "label": "THREE. MAYBE FOUR.",
+          "cost": {},
+          "outcome": {
+            "log": "He writes it down. 'Then we hold longer than they do.' He lets you go without telling you where to find them.",
+            "roubles": 0,
+            "items": [],
+            "standing": {},
+            "advances": "mil1"
+          }
+        },
+        {
+          "label": "TRY TO TAKE THE RIFLE",
+          "cost": {},
+          "outcome": {
+            "log": "You get an elbow in the ribs and a rifle butt across the shoulder. He takes your medkit and walks off. The checkpoint heard about you either way.",
+            "roubles": 0,
+            "items": [],
+            "standing": {},
+            "ability": { "id": "humanity", "delta": -1 },
+            "advances": "mil1"
+          }
+        }
+      ]
+    },
+    {
+      "event_id": "mil2-diesel",
+      "act": 1,
+      "phase": "raid",
+      "place": { "map": "customs", "location": "", "node": "" },
+      "title": "TWO CANS",
+      "text": "Checkpoint seven is three concrete blocks and a tin roof. A corporal is counting magazines, a medic is unwrapping the same bandage for the third time. Nobody asks where the fuel came from. 'Can you do two more?' the corporal says. 'That is the whole question.'",
+      "requires": { "quest_done": [], "not_done": [], "flags": ["seen:mil1-stop"] },
+      "weight": 0,
+      "choices": [
+        {
+          "label": "HAND THEM THE TWO CANS",
+          "cost": {},
+          "outcome": {
+            "log": "They pour one in and keep one in the shade. The corporal writes your name on a scrap of the duty sheet, which is the closest they have to a promise.",
+            "roubles": 12000,
+            "items": ["aseptic-bandage"],
+            "standing": {},
+            "advances": "mil2"
+          }
+        },
+        {
+          "label": "ONE CAN. THE OTHER IS MINE.",
+          "cost": {},
+          "outcome": {
+            "log": "The medic notes it, small and exact, the way medics note things. Nobody argues with you.",
+            "roubles": 4000,
+            "items": [],
+            "standing": {},
+            "advances": "mil2"
+          }
+        },
+        {
+          "label": "NAME A PRICE FIRST",
+          "cost": {},
+          "outcome": {
+            "log": "The corporal empties his pockets into your hand without a word and turns back to the magazines.",
+            "roubles": 20000,
+            "items": [],
+            "standing": {},
+            "ability": { "id": "humanity", "delta": -1 },
+            "advances": "mil2"
+          }
+        }
+      ]
+    },
+    {
+      "event_id": "mil3-battery",
+      "act": 1,
+      "phase": "raid",
+      "place": { "map": "customs", "location": "", "node": "" },
+      "title": "THE RADIO",
+      "text": "Their set is old, military, and dead without a rechargeable cell. The corporal sketches it on the back of the duty sheet: old station, second floor, third locker, pry it. In the locker, under the cell, there is a stack of letters that were never posted. Same addressee on all of them, same handwriting.",
+      "requires": { "quest_done": [], "not_done": [], "flags": ["seen:mil2-diesel"] },
+      "weight": 0,
+      "choices": [
+        {
+          "label": "TAKE THE CELL ONLY",
+          "cost": { "items": ["rechargeable-battery"] },
+          "outcome": {
+            "log": "The set comes up that night. All it brings back is a carrier tone and a callsign, repeating.",
+            "roubles": 8000,
+            "items": ["556x45mm-m855-ammo-pack-50-pcs"],
+            "standing": {},
+            "advances": "mil3"
+          }
+        },
+        {
+          "label": "CELL AND LETTERS",
+          "cost": { "items": ["rechargeable-battery"] },
+          "outcome": {
+            "log": "The corporal reads one, folds it, puts it in his breast pocket and does not mention it again. The medic looks at the floor.",
+            "roubles": 8000,
+            "items": ["556x45mm-m855-ammo-pack-50-pcs"],
+            "standing": {},
+            "advances": "mil3"
+          }
+        },
+        {
+          "label": "READ ONE LETTER FIRST",
+          "cost": { "items": ["rechargeable-battery"] },
+          "outcome": {
+            "log": "The lieutenant did not go south to desert. He went south to ask why the relief never came. The letter says so in his own hand.",
+            "roubles": 8000,
+            "items": ["556x45mm-m855-ammo-pack-50-pcs"],
+            "standing": {},
+            "advances": "mil3"
+          }
+        }
+      ]
+    },
+    {
+      "event_id": "mil4-lieutenant",
+      "act": 1,
+      "phase": "raid",
+      "place": { "map": "customs", "location": "", "node": "" },
+      "title": "THE LIEUTENANT",
+      "text": "He is in the drainage ditch behind the motor pool, buttons done up, no weapon on him, a wax-sealed dispatch case under his arm. The case holds one sheet: a list of numbers, a date, and a printed line - 'the above will be withdrawn; all others hold in place'.",
+      "requires": { "quest_done": [], "not_done": [], "flags": ["seen:mil3-battery"] },
+      "weight": 0,
+      "choices": [
+        {
+          "label": "TAKE THE CASE BACK TO THEM",
+          "cost": {},
+          "outcome": {
+            "log": "The corporal breaks the seal himself, in front of you, and reads it twice before he says anything.",
+            "roubles": 0,
+            "items": ["salewa-first-aid-kit"],
+            "standing": {},
+            "sets": ["mil4-case"],
+            "advances": "mil4"
+          }
+        },
+        {
+          "label": "TAKE HIM BACK. LEAVE THE CASE.",
+          "cost": {},
+          "outcome": {
+            "log": "They carry him in on a door panel. Nobody asks what was in the case, and that is the point.",
+            "roubles": 15000,
+            "items": ["salewa-first-aid-kit"],
+            "standing": {},
+            "advances": "mil4"
+          }
+        },
+        {
+          "label": "BURN THE SHEET. KEEP THE CASE.",
+          "cost": {},
+          "outcome": {
+            "log": "Wax and paper go up together behind the motor pool. What they do not know cannot be taken from them.",
+            "roubles": 0,
+            "items": ["secure-flash-drive"],
+            "standing": {},
+            "ability": { "id": "humanity", "delta": 1 },
+            "advances": "mil4"
+          }
+        }
+      ]
+    },
+    {
+      "event_id": "mil5-hold",
+      "act": 2,
+      "phase": "raid",
+      "place": { "map": "customs", "location": "", "node": "" },
+      "title": "HOLD IN PLACE",
+      "text": "The corporal has the sheet. He has read it. He asks it quietly, with the torch off: 'Are any of our three numbers on this list.' The medic is counting magazines again, out loud, from the beginning.",
+      "requires": { "quest_done": [], "not_done": [], "flags": ["seen:mil4-lieutenant"] },
+      "weight": 0,
+      "choices": [
+        {
+          "label": "NO. NONE OF YOU.",
+          "cost": {},
+          "outcome": {
+            "log": "He nods once and goes to wake the medic. They start filling sandbags at the north face of the checkpoint. Nobody asks you to stay.",
+            "roubles": 25000,
+            "items": ["analgin-painkillers"],
+            "standing": {},
+            "ability": { "id": "humanity", "delta": 1 },
+            "advances": "mil5"
+          }
+        },
+        {
+          "label": "YES. ALL THREE.",
+          "cost": {},
+          "outcome": {
+            "log": "He folds the sheet and puts it in his pocket. 'Then we hold,' he says, 'and you should not be here when it starts.'",
+            "roubles": 25000,
+            "items": ["analgin-painkillers"],
+            "standing": {},
+            "ability": { "id": "humanity", "delta": -1 },
+            "advances": "mil5"
+          }
+        },
+        {
+          "label": "GIVE THEM THE CASE AND THE NUMBERS",
+          "cost": {},
+          "requires_flags": ["mil4-case"],
+          "outcome": {
+            "log": "You put the case on the crate and read the three numbers out loud yourself. Better a voice they know.",
+            "roubles": 40000,
+            "items": ["salewa-first-aid-kit"],
+            "standing": {},
+            "ability": { "id": "humanity", "delta": 1 },
+            "advances": "mil5"
+          }
+        },
+        {
+          "label": "LEAVE THE SHEET AND WALK AWAY",
+          "cost": {},
+          "outcome": {
+            "log": "You hear the first shot before you reach the fence. Whether it was theirs or for them, you will not find out tonight.",
+            "roubles": 0,
+            "items": [],
+            "standing": {},
+            "advances": "mil5"
+          }
+        }
+      ]
+    },
+    {
+      "event_id": "free-a-man-in-the-stairwell",
+      "act": 0,
+      "phase": "raid",
+      "repeatable": true,
+      "title": "A MAN IN THE STAIRWELL",
+      "text": "He is bleeding against the wall between floors, holding his side together with a hand that has stopped being useful. He has a pistol and no boots, and he looks at you the way you look at weather.",
+      "requires": { "quest_done": [], "not_done": [] },
+      "weight": 10,
+      "choices": [
+        {
+          "label": "PATCH HIM UP",
+          "cost": { "items": ["aseptic-bandage"] },
+          "outcome": {
+            "log": "He lives. He leaves you his pistol, which is not worth much, and a name you will hear again.",
+            "roubles": 0,
+            "items": ["makarov-pm-9x18pm-pistol"],
+            "standing": {},
+            "advances": null
+          }
+        },
+        {
+          "label": "TAKE THE PISTOL",
+          "cost": {},
+          "outcome": {
+            "log": "He does not argue. The stairwell is quiet afterwards.",
+            "roubles": 0,
+            "items": ["makarov-pm-9x18pm-pistol"],
+            "standing": {},
+            "advances": null
+          }
+        },
+        {
+          "label": "WALK PAST",
+          "cost": {},
+          "outcome": {
+            "log": "You take the stairs two at a time. Behind you, nothing, and then nothing.",
+            "roubles": 0,
+            "items": [],
+            "standing": {},
+            "advances": null
+          }
+        }
+      ]
+    }
+  ]
+}
